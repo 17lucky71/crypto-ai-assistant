@@ -53,7 +53,8 @@ MAX_TOOL_ROUNDS = 3  # 도구 호출을 주고받는 최대 횟수 (무한 반�
 def _client() -> OpenAI:
     if not settings.OPENAI_API_KEY:
         raise ChatUnavailable("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
-    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=40)
+    # OPENAI_BASE_URL 이 비어 있으면 OpenAI(GPT), 값이 있으면 그 주소의 OpenAI 호환 API 를 쓴다
+    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL or None, timeout=40)
 
 
 def _complete(messages: list[dict], use_tools: bool):

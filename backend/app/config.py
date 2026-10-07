@@ -11,8 +11,9 @@ def _split(value: str) -> list[str]:
 
 
 class Settings:
-    # OpenAI
+    # OpenAI (기본). OPENAI_BASE_URL 을 바꾸면 OpenAI 호환 API(예: Gemini)로도 동작한다.
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "500"))
 

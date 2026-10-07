@@ -33,7 +33,7 @@
 |---|---|
 | 백엔드 | Python 3.11, FastAPI, Pydantic, Uvicorn |
 | DB | Firebase Firestore (`firebase-admin`) |
-| AI | OpenAI GPT (`gpt-4o-mini`, `max_tokens=500`) |
+| AI | `openai` 패키지 (OpenAI 호환 Chat Completions + Function Calling). 배포는 무료 키로 Google Gemini(`gemini-2.5-flash`)의 OpenAI 호환 주소를 사용, 환경 변수만 바꾸면 GPT(`gpt-4o-mini`)로 동작 |
 | 프론트엔드 | HTML / CSS / JavaScript (프레임워크 없음) |
 | 배포 | Render (백엔드), Vercel (프론트엔드) |
 | 데이터 | 업비트 시세 API (KRW-BTC 일봉, 400일) |
@@ -222,9 +222,10 @@ conversations/{자동ID}
 ## 10. 환경 변수
 | 이름 | 위치 | 설명 |
 |---|---|---|
-| `OPENAI_API_KEY` | 백엔드 | OpenAI API 키 |
-| `OPENAI_MODEL` | 백엔드 | 기본 `gpt-4o-mini` |
-| `OPENAI_MAX_TOKENS` | 백엔드 | 답변 최대 토큰, 기본 500 (비용 제한) |
+| `OPENAI_API_KEY` | 백엔드 | OpenAI API 키 (또는 Gemini API 키) |
+| `OPENAI_BASE_URL` | 백엔드 | 비우면 OpenAI. Gemini 는 `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| `OPENAI_MODEL` | 백엔드 | `gpt-4o-mini` 또는 `gemini-2.5-flash` |
+| `OPENAI_MAX_TOKENS` | 백엔드 | 답변 최대 토큰. GPT 500, Gemini 1500 권장 (Gemini 2.5 는 생각 과정도 토큰에 포함) |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | 백엔드(배포) | 서비스 계정 키 JSON 전체 |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | 백엔드(로컬) | 서비스 계정 키 파일 경로 |
 | `ALLOWED_ORIGINS` | 백엔드 | CORS 허용 도메인 (쉼표 구분) |
@@ -262,12 +263,21 @@ python -m http.server 5500
 - **추세 판단**: 최근 30일 평균이 직전 30일 평균보다 +3% 이상이면 상승, -3% 이하면 하락, 그 사이는 보합
 - **메모 자동 생성**: 하루 ±5% 이상 움직인 날에 "일간 +6.3% 급등" 메모를 붙여, AI 가 급등락일을 설명할 수 있게 했다.
 
+### AI 제공자에 대해
+과제는 GPT API 사용을 요구하지만, 개인 OpenAI 키는 선불 충전이 필요해 **배포본은 Google Gemini 무료 키**로 운영했다.
+Gemini 는 OpenAI 와 같은 형식의 API 주소를 제공하므로 코드는 `openai` 패키지 그대로이고, 아래 두 값만 바꾸면 GPT 로 전환된다.
+```
+OPENAI_BASE_URL=          # 비우면 OpenAI
+OPENAI_MODEL=gpt-4o-mini
+```
+컨텍스트 주입, Function Calling, 대화 저장 등 모든 흐름은 두 제공자에서 동일하다.
+
 ## 13. 보안·운영
 - API 키, 서비스 계정 키는 모두 환경 변수로 관리하고 코드에 넣지 않았다.
 - **입력 검증(Pydantic)**: 잘못된 날짜, 0 이하 가격, 200자 넘는 메모, 빈 메시지는 422 로 거절한다.
 - **예외 처리**: 없는 id 404, 중복 날짜 409, AI 호출 실패 503, 그 외 500 을 JSON 으로 돌려주고 프론트가 문구로 표시한다.
 - **CORS**: `ALLOWED_ORIGINS` 에 등록한 프론트 주소만 호출할 수 있다.
-- **비용 제한**: 작은 모델(`gpt-4o-mini`), `max_tokens=500`, 이전 대화는 최근 10개만 전송.
+- **비용 제한**: 작은 모델(`gpt-4o-mini` / `gemini-2.5-flash`), `max_tokens` 제한, 이전 대화는 최근 10개만 전송, 도구 호출은 최대 3회.
 
 ## 14. 제출 스크린샷
 | 화면 | 이미지 |

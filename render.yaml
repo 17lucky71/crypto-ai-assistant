@@ -12,10 +12,12 @@ services:
         value: 3.11.9
       - key: OPENAI_API_KEY
         sync: false
+      - key: OPENAI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
       - key: OPENAI_MODEL
-        value: gpt-4o-mini
+        value: gemini-2.5-flash
       - key: OPENAI_MAX_TOKENS
-        value: "500"
+        value: "1500"
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: ALLOWED_ORIGINS
