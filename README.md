@@ -41,7 +41,7 @@
 ## 4. 배포 URL
 | 구분 | 주소 |
 |---|---|
-| 프론트엔드 (Vercel) | https://YOUR-APP.vercel.app |
+| 프론트엔드 (Vercel) | https://crypto-ai-assistant-frontend-lake.vercel.app |
 | 백엔드 API (Render) | https://crypto-ai-assistant-j7ge.onrender.com |
 | Swagger UI | https://crypto-ai-assistant-j7ge.onrender.com/docs |
 
