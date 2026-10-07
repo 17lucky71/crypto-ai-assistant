@@ -7,6 +7,7 @@
 import json
 import logging
 import uuid
+from collections import defaultdict
 from copy import deepcopy
 
 from .config import settings
@@ -21,7 +22,7 @@ class MemoryStore:
     """Firestore 키가 없을 때 쓰는 아주 단순한 대체 저장소 (개발·테스트용)."""
 
     def __init__(self) -> None:
-        self._data: dict[str, dict[str, dict]] = {DATA_COLLECTION: {}, CONVERSATION_COLLECTION: {}}
+        self._data: dict[str, dict[str, dict]] = defaultdict(dict)
 
     def list(self, collection: str) -> list[dict]:
         return [{"id": k, **deepcopy(v)} for k, v in self._data[collection].items()]

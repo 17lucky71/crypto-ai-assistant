@@ -30,6 +30,12 @@ class Settings:
     DATA_NAME: str = os.getenv("DATA_NAME", "비트코인 일별 종가 (업비트 KRW-BTC)")
     DATA_UNIT: str = os.getenv("DATA_UNIT", "원")
 
+    # 매매 신호 알림 (보너스): 디스코드 웹훅 주소와, 알림 실행 API 를 보호하는 비밀 토큰
+    DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
+    ALERT_TOKEN: str = os.getenv("ALERT_TOKEN", "")
+    ALERT_MODE: str = os.getenv("ALERT_MODE", "change")  # change: 신호가 바뀐 날만 / daily: 매일
+    NEWS_QUERY: str = os.getenv("NEWS_QUERY", "비트코인")
+
     # 채팅에 함께 보낼 이전 대화 개수 (토큰 절약)
     CHAT_HISTORY_LIMIT: int = int(os.getenv("CHAT_HISTORY_LIMIT", "10"))
 

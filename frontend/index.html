@@ -35,6 +35,30 @@
     <div class="stat wide"><span class="label">최근 트렌드</span><span id="sTrend" class="value">-</span></div>
   </section>
 
+  <!-- 오늘의 매매 신호 (보너스) -->
+  <section class="panel signal" aria-label="오늘의 매매 신호">
+    <div class="panel-head">
+      <h2>오늘의 신호 <span id="sigDate" class="muted"></span></h2>
+      <button id="sigAsk" class="btn btn-small" type="button">AI에게 이유 묻기</button>
+    </div>
+    <div class="signal-body">
+      <div class="sig-left">
+        <span id="sigBadge" class="sig-badge">계산 중</span>
+        <span id="sigScore" class="muted"></span>
+        <ul id="sigReasons" class="sig-reasons"></ul>
+      </div>
+      <div class="sig-side">
+        <div class="mini"><span class="label">7일 예상 범위</span><span id="sigRange" class="value sm">-</span><small>최근 30일 변동성 기준 약 68%</small></div>
+        <div class="mini"><span class="label">이 신호의 과거 적중률</span><span id="sigHit" class="value">-</span><small id="sigHitSub"></small></div>
+      </div>
+      <div class="sig-news">
+        <span class="label">📰 최근 뉴스</span>
+        <ul id="newsList" class="news-list"><li class="muted">불러오는 중…</li></ul>
+      </div>
+    </div>
+    <p class="muted sig-note">규칙 기반 참고 신호이며 수익을 보장하지 않아요. 투자 판단과 책임은 본인에게 있어요.</p>
+  </section>
+
   <!-- 그래프 + 추가 통계 (보너스) -->
   <section class="panel insight" aria-label="가격 흐름 그래프">
     <div class="panel-head">
@@ -87,6 +111,7 @@
         <button class="chip" type="button">가장 비쌌던 날은 언제야?</button>
         <button class="chip" type="button">급락했던 날 알려줘</button>
         <button class="chip" type="button">올해 3월 가격 흐름은?</button>
+        <button class="chip" type="button">지금 사도 될까?</button>
       </div>
       <form id="chatForm" class="chat-form">
         <input id="chatInput" type="text" maxlength="1000" placeholder="데이터에 대해 물어보세요" autocomplete="off" required />

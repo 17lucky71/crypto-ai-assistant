@@ -1,0 +1,35 @@
+# 매일 아침 9시 5분(KST)에 백엔드의 알림 API 를 호출한다.
+# 백엔드가 업비트 시세 갱신 → 매매 신호 계산 → (신호가 바뀌었으면) 디스코드로 사유와 함께 전송한다.
+# 필요한 저장소 Secret: ALERT_TOKEN (Render 의 ALERT_TOKEN 과 같은 값)
+name: 매일 매매 신호 알림
+
+on:
+  schedule:
+    - cron: "5 0 * * *"   # UTC 00:05 = 한국 09:05
+  workflow_dispatch:       # Actions 탭에서 수동 실행 가능
+    inputs:
+      force:
+        description: "신호가 그대로여도 디스코드로 보내기"
+        type: boolean
+        default: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: ${{ vars.API_URL || 'https://crypto-ai-assistant-j7ge.onrender.com' }}
+      FORCE: ${{ github.event.inputs.force || 'false' }}
+    steps:
+      - name: 잠든 무료 서버 깨우기 (최대 3분)
+        run: |
+          for i in $(seq 1 18); do
+            if curl -sf --max-time 20 "$API_URL/" > /dev/null; then echo "서버 깨어남"; exit 0; fi
+            echo "깨우는 중... ($i)"; sleep 10
+          done
+          echo "서버가 응답하지 않습니다"; exit 1
+      - name: 알림 실행
+        run: |
+          curl -sS --fail-with-body --max-time 120 -X POST \
+            -H "X-Alert-Token: ${{ secrets.ALERT_TOKEN }}" \
+            "$API_URL/api/alerts/run?force=$FORCE"

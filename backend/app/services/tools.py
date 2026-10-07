@@ -8,7 +8,7 @@ import json
 from datetime import date
 from statistics import mean
 
-from . import conversation_service, data_service
+from . import conversation_service, data_service, news_service, signal_service
 
 MAX_RANGE_ROWS = 120  # 토큰 절약: 한 번에 돌려줄 최대 일수
 
@@ -51,6 +51,29 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "get_market_signals",
+            "description": "오늘의 매매 신호(매수 신호/매도 신호/관망)와 그 근거(추세, RSI, 모멘텀, 고점 대비 하락률), "
+                           "7일 뒤 예상 가격 범위, 같은 규칙의 과거 적중률을 가져온다. "
+                           "'지금 살까/팔까?', '앞으로 어떨까?', '전망', '예측' 같은 질문에 쓴다.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_news",
+            "description": "최근 7일 뉴스 헤드라인(제목, 언론사, 시각, 링크)을 가져온다. "
+                           "'요즘 왜 올라/떨어져?', '뉴스', '이슈', '살까/팔까' 질문에서 시장 분위기 근거로 쓴다.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "검색어. 기본은 '비트코인'"}},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_conversations",
             "description": "저장된 이전 대화 목록(제목, 마지막 수정 시각, 메시지 수)을 가져온다. "
                            "'지난번에 뭐 물어봤지?' 같은 질문에 쓴다.",
@@ -64,6 +87,8 @@ TOOL_LABELS = {
     "get_statistics": "추가 통계 조회",
     "get_price_range": "기간 데이터 조회",
     "list_conversations": "대화 목록 조회",
+    "get_market_signals": "매매 신호 분석",
+    "get_recent_news": "뉴스 조회",
 }
 
 
@@ -104,6 +129,15 @@ def run_tool(name: str, arguments: str) -> dict:
             return {k: v for k, v in st.items() if k != "series"}  # 그래프용 시계열은 너무 길어 제외
         if name == "get_price_range":
             return price_range(date.fromisoformat(args["start_date"]), date.fromisoformat(args["end_date"]))
+        if name == "get_market_signals":
+            sig = signal_service.current_signal()
+            sig.pop("indicators", None)  # 근거 문장(reasons)에 이미 들어 있어 토큰 절약
+            return sig
+        if name == "get_recent_news":
+            news = news_service.recent_news(args.get("query"), 8)
+            for n in news.get("items", []):
+                n.pop("link", None)  # 긴 링크는 AI 에게는 필요 없음
+            return news
         if name == "list_conversations":
             return {"conversations": conversation_service.list_conversations()[:20]}
         return {"error": f"알 수 없는 도구: {name}"}

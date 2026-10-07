@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import STORE_KIND
-from app.routers import chat, conversations, data
+from app.routers import chat, conversations, data, signals
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,12 +24,13 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials="*" not in origins,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Alert-Token"],
 )
 
 app.include_router(data.router)
 app.include_router(conversations.router)
 app.include_router(chat.router)
+app.include_router(signals.router)
 
 
 @app.get("/", tags=["상태"], summary="서버 상태 확인 (프론트의 콜드스타트 확인용)")

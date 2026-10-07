@@ -46,6 +46,18 @@ def get_price_range(start_date: str, end_date: str) -> dict:
 
 
 @mcp.tool()
+def get_market_signals() -> dict:
+    """오늘의 매매 신호(매수/매도/관망)와 근거, 7일 예상 가격 범위, 같은 규칙의 과거 적중률. 참고용이며 투자 판단은 본인 책임."""
+    return _get("/api/signals")
+
+
+@mcp.tool()
+def get_recent_news(query: str = "비트코인", limit: int = 8) -> dict:
+    """최근 7일 뉴스 헤드라인(제목, 언론사, 시각, 링크)."""
+    return _get("/api/news", {"q": query, "limit": limit})
+
+
+@mcp.tool()
 def list_conversations() -> list:
     """웹 서비스에 저장된 이전 대화 목록(제목, 수정 시각, 메시지 수, id)."""
     return _get("/api/conversations")

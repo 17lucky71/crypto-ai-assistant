@@ -22,3 +22,9 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: ALERT_TOKEN
+        sync: false
+      - key: ALERT_MODE
+        value: change

@@ -82,6 +82,62 @@ async function loadSummary() {
   }
 }
 
+// ---------- 오늘의 신호 + 뉴스 (보너스) ----------
+async function loadSignal() {
+  try {
+    const g = await api("/api/signals");
+    if (!g.available) {
+      $("sigBadge").textContent = "데이터 부족";
+      $("sigScore").textContent = g.message || "";
+      return;
+    }
+    $("sigDate").textContent = `${g.date} 종가 기준`;
+    $("sigBadge").textContent = g.label;
+    $("sigBadge").className = "sig-badge " + (g.signal === "BUY" ? "buy" : g.signal === "SELL" ? "sell" : "");
+    $("sigScore").textContent = `점수 ${g.score > 0 ? "+" : ""}${g.score} (+2 이상 매수, -2 이하 매도)`;
+    const ul = $("sigReasons");
+    ul.innerHTML = "";
+    g.reasons.forEach((r) => {
+      const li = document.createElement("li");
+      li.className = r.score > 0 ? "plus" : r.score < 0 ? "minus" : "zero";
+      li.textContent = r.text;
+      ul.appendChild(li);
+    });
+    $("sigRange").textContent = `${eok(g.forecast.low)} ~ ${eok(g.forecast.high)}`;
+    const key = g.signal.toLowerCase();
+    const bt = g.backtest[key];
+    $("sigHit").textContent = g.this_signal_hit_rate_pct == null ? "-" : `${g.this_signal_hit_rate_pct}%`;
+    $("sigHitSub").textContent = `과거 ${bt.count}회 · 그냥 '오른다' ${g.backtest.baseline_up_pct}%`;
+  } catch (e) {
+    $("sigBadge").textContent = "불러오기 실패";
+    $("sigScore").textContent = e.message;
+  }
+}
+
+async function loadNews() {
+  const ul = $("newsList");
+  try {
+    const n = await api("/api/news?limit=5");
+    ul.innerHTML = "";
+    if (!n.items.length) {
+      ul.innerHTML = `<li class="muted">${n.error ? "뉴스를 가져오지 못했어요." : "최근 뉴스가 없어요."}</li>`;
+      return;
+    }
+    n.items.forEach((it) => {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = it.link; a.target = "_blank"; a.rel = "noopener";
+      a.textContent = it.title;
+      const sm = document.createElement("small");
+      sm.textContent = `${it.source} · ${it.published}`;
+      li.append(a, sm);
+      ul.appendChild(li);
+    });
+  } catch (e) {
+    ul.innerHTML = '<li class="muted">뉴스를 가져오지 못했어요.</li>';
+  }
+}
+
 // ---------- 채팅 ----------
 function addMessage(role, text, toolsUsed) {
   const el = document.createElement("div");
@@ -451,7 +507,7 @@ function initTheme() {
 
 // 데이터가 바뀌면 목록·요약·통계를 함께 새로고침
 function refreshAll(flashId) {
-  return Promise.all([loadData(flashId), loadSummary(), loadStatistics()]);
+  return Promise.all([loadData(flashId), loadSummary(), loadStatistics(), loadSignal()]);
 }
 
 // ---------- 시작 ----------
@@ -478,6 +534,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   $("suggestions").querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => sendMessage(b.textContent)));
   $("newChatBtn").addEventListener("click", resetChat);
+  $("sigAsk").addEventListener("click", () => sendMessage("오늘 신호가 왜 이렇게 나왔는지 뉴스와 함께 설명해 줘. 지금 사도 될까?"));
   $("addForm").addEventListener("submit", addData);
   $("moreBtn").addEventListener("click", () => {
     state.shown += PAGE;
@@ -485,6 +542,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   if (await waitForServer()) {
-    await Promise.all([loadSummary(), loadConversations(), loadData(), loadStatistics()]);
+    await Promise.all([loadSummary(), loadConversations(), loadData(), loadStatistics(), loadSignal(), loadNews()]);
   }
 });
