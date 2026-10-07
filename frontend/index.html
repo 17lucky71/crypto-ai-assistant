@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>비트코인 AI 비서</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">₿</span>
+      <div>
+        <h1>비트코인 AI 비서</h1>
+        <p class="sub">업비트 KRW-BTC 일별 종가를 아는 AI</p>
+      </div>
+    </div>
+    <span id="serverStatus" class="pill pill-wait">서버 확인 중</span>
+  </header>
+
+  <div id="wakeBanner" class="banner" hidden>
+    무료 서버가 잠들어 있어 깨우는 중이에요. 첫 접속은 최대 1분 정도 걸릴 수 있어요.
+  </div>
+
+  <!-- 데이터 요약 -->
+  <section class="summary" aria-label="데이터 요약">
+    <div class="stat"><span class="label">기간</span><span id="sPeriod" class="value">-</span></div>
+    <div class="stat"><span class="label">데이터 수</span><span id="sCount" class="value">-</span></div>
+    <div class="stat"><span class="label">최근 종가</span><span id="sLatest" class="value">-</span></div>
+    <div class="stat"><span class="label">30일 변화</span><span id="sChange" class="value">-</span></div>
+    <div class="stat wide"><span class="label">최근 트렌드</span><span id="sTrend" class="value">-</span></div>
+  </section>
+
+  <main class="layout">
+    <!-- 대화 기록 -->
+    <aside class="panel history">
+      <div class="panel-head">
+        <h2>대화 기록</h2>
+        <button id="newChatBtn" class="btn btn-small">+ 새 대화</button>
+      </div>
+      <ul id="convList" class="conv-list"></ul>
+      <p id="convEmpty" class="muted" hidden>저장된 대화가 없어요.</p>
+    </aside>
+
+    <!-- 채팅 -->
+    <section class="panel chat">
+      <div class="panel-head">
+        <h2 id="chatTitle">새 대화</h2>
+      </div>
+      <div id="messages" class="messages" aria-live="polite">
+        <div class="msg assistant intro">안녕하세요! 저장된 비트코인 시세 요약을 보고 답해 드려요. 아래 예시를 눌러 보거나 직접 물어보세요.</div>
+      </div>
+      <div class="suggestions" id="suggestions">
+        <button class="chip" type="button">최근 한 달 흐름 어때?</button>
+        <button class="chip" type="button">가장 비쌌던 날은 언제야?</button>
+        <button class="chip" type="button">급락했던 날 알려줘</button>
+      </div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" type="text" maxlength="1000" placeholder="데이터에 대해 물어보세요" autocomplete="off" required />
+        <button id="sendBtn" class="btn" type="submit">보내기</button>
+      </form>
+    </section>
+
+    <!-- 데이터 관리 -->
+    <section class="panel data">
+      <div class="panel-head">
+        <h2>데이터 관리</h2>
+        <span id="dataCount" class="muted"></span>
+      </div>
+      <form id="addForm" class="add-form">
+        <label>날짜<input id="addDate" type="date" required /></label>
+        <label>종가(원)<input id="addValue" type="number" min="1" step="1" placeholder="165000000" required /></label>
+        <label class="memo">메모<input id="addMemo" type="text" maxlength="200" placeholder="선택" /></label>
+        <button class="btn" type="submit">추가</button>
+      </form>
+      <p id="dataMsg" class="form-msg" role="status"></p>
+      <div class="table-wrap">
+        <table>
+          <colgroup><col class="c-date" /><col class="c-value" /><col /><col class="c-act" /></colgroup>
+          <thead><tr><th>날짜</th><th class="num">종가(원)</th><th>메모</th><th></th></tr></thead>
+          <tbody id="dataBody"></tbody>
+        </table>
+      </div>
+      <button id="moreBtn" class="btn btn-ghost" hidden>더 보기</button>
+    </section>
+  </main>
+
+  <footer class="foot">
+    데이터: 업비트 시세 API · AI 답변은 저장된 요약만 근거로 하며 투자 조언이 아닙니다 ·
+    <a id="docsLink" href="#" target="_blank" rel="noopener">API 문서(Swagger)</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

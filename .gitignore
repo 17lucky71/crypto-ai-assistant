@@ -1,0 +1,14 @@
+# 비밀 정보 (절대 커밋 금지)
+.env
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# 파이썬
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# 프론트 빌드 결과
+frontend/dist/
+node_modules/
