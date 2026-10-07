@@ -57,6 +57,7 @@ class DataStatistics(BaseModel):
 class Message(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(..., min_length=1, max_length=4000)
+    tools_used: list[str] | None = Field(None, description="(보너스) 이 답변을 위해 AI 가 호출한 도구")
 
 
 class ConversationCreate(BaseModel):
@@ -89,7 +90,14 @@ class ChatRequest(BaseModel):
         return v.strip()
 
 
+class ToolCall(BaseModel):
+    name: str
+    label: str
+    arguments: dict
+
+
 class ChatResponse(BaseModel):
     reply: str
     conversation_id: str
     summary_used: DataSummary
+    tool_calls: list[ToolCall] = Field(default_factory=list, description="(보너스) AI 가 호출한 도구와 인자")

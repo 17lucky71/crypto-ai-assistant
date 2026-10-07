@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
 
 from ..schemas import DataCreate, DataItem, DataStatistics, DataSummary, DataUpdate
-from ..services import data_service
+from ..services import data_service, tools
 
 router = APIRouter(prefix="/api/data", tags=["데이터"])
 
@@ -20,6 +20,11 @@ def get_summary():
 @router.get("/statistics", response_model=DataStatistics, summary="추가 통계 (보너스: 이동평균, 상승일 비율, 최대 낙폭, 월별 수익률)")
 def get_statistics():
     return data_service.build_statistics()
+
+
+@router.get("/range", summary="(보너스) 기간 데이터와 통계 — AI 도구 get_price_range 와 같은 함수")
+def get_range(start: date = Query(..., description="시작일 YYYY-MM-DD"), end: date = Query(..., description="종료일 YYYY-MM-DD")):
+    return tools.price_range(start, end)
 
 
 @router.get("/export", summary="데이터 내보내기 (보너스: CSV 또는 JSON 파일 다운로드)")
@@ -43,8 +48,14 @@ def export_data(format: str = Query("csv", pattern="^(csv|json)$", description="
 def list_data(
     order: str = Query("desc", pattern="^(asc|desc)$", description="날짜 정렬 (asc/desc)"),
     limit: int | None = Query(None, ge=1, le=5000, description="최대 개수"),
+    start: date | None = Query(None, description="시작일 (YYYY-MM-DD, 선택)"),
+    end: date | None = Query(None, description="종료일 (YYYY-MM-DD, 선택)"),
 ):
     rows = data_service.list_data()
+    if start:
+        rows = [r for r in rows if r["date"] >= start.isoformat()]
+    if end:
+        rows = [r for r in rows if r["date"] <= end.isoformat()]
     if order == "desc":
         rows = rows[::-1]
     return rows[:limit] if limit else rows

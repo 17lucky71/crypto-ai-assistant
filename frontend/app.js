@@ -83,10 +83,21 @@ async function loadSummary() {
 }
 
 // ---------- 채팅 ----------
-function addMessage(role, text) {
+function addMessage(role, text, toolsUsed) {
   const el = document.createElement("div");
   el.className = `msg ${role}`;
   el.textContent = text; // textContent 로 넣어 HTML 주입을 막는다
+  if (toolsUsed && toolsUsed.length) {
+    // (보너스) AI 가 답변을 위해 호출한 도구 표시
+    const box = document.createElement("div");
+    box.className = "tools-used";
+    [...new Set(toolsUsed)].forEach((label) => {
+      const tag = document.createElement("span");
+      tag.textContent = `🔧 ${label}`;
+      box.appendChild(tag);
+    });
+    el.appendChild(box);
+  }
   $("messages").appendChild(el);
   $("messages").scrollTop = $("messages").scrollHeight;
   return el;
@@ -124,7 +135,7 @@ async function sendMessage(text) {
       body: JSON.stringify({ message: text, conversation_id: state.conversationId }),
     });
     typing.remove();
-    addMessage("assistant", res.reply);
+    addMessage("assistant", res.reply, (res.tool_calls || []).map((t) => t.label));
     const isNew = !state.conversationId;
     state.conversationId = res.conversation_id;
     if (isNew) $("chatTitle").textContent = text.length > 30 ? text.slice(0, 30) + "…" : text;
@@ -189,7 +200,7 @@ async function openConversation(id) {
     $("chatTitle").textContent = conv.title;
     $("messages").querySelectorAll(".msg:not(.intro)").forEach((n) => n.remove());
     $("suggestions").hidden = true;
-    conv.messages.forEach((m) => addMessage(m.role, m.content));
+    conv.messages.forEach((m) => addMessage(m.role, m.content, m.tools_used));
     highlightConversation();
   } catch (e) {
     addMessage("error", `대화를 불러오지 못했어요: ${e.message}`);

@@ -1,13 +1,13 @@
 """컨텍스트 주입 채팅.
 
-흐름: 데이터 요약 조회 → 시스템 프롬프트에 삽입 → GPT 호출 → 대화 자동 저장
+흐름: 데이터 요약 조회 → 시스템 프롬프트에 삽입 → GPT 호출(필요하면 도구 호출) → 대화 자동 저장
 """
 import json
 
 from openai import OpenAI
 
 from ..config import settings
-from . import conversation_service, data_service
+from . import conversation_service, data_service, tools
 
 SYSTEM_TEMPLATE = """당신은 사용자의 데이터를 이해하는 데이터 분석 비서입니다.
 아래 [사용자 데이터 요약]만 근거로 한국어로 친절하고 간결하게 답하세요.
@@ -27,6 +27,7 @@ SYSTEM_TEMPLATE = """당신은 사용자의 데이터를 이해하는 데이터 
 2. 요약에 없는 내용(예: 뉴스, 미래 가격)은 추측하지 말고 "데이터에 없다"고 말합니다.
 3. 매수·매도 같은 투자 권유는 하지 않습니다. 필요하면 "투자 판단은 본인 책임"이라고 덧붙입니다.
 4. 3~6문장 안으로 답합니다.
+5. 요약에 없는 특정 기간·통계가 필요하면 제공된 도구를 호출해 확인한 뒤 답합니다.
 """
 
 
@@ -46,43 +47,74 @@ def build_system_prompt(summary: dict) -> str:
     )
 
 
-def _call_openai(messages: list[dict]) -> str:
+MAX_TOOL_ROUNDS = 3  # 도구 호출을 주고받는 최대 횟수 (무한 반복·비용 방지)
+
+
+def _client() -> OpenAI:
     if not settings.OPENAI_API_KEY:
         raise ChatUnavailable("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=40)
+
+
+def _complete(messages: list[dict], use_tools: bool):
+    """OpenAI 호출 1회. 응답 message 객체를 돌려준다 (content 또는 tool_calls)."""
+    client = _client()
     try:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=40)
-        res = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=messages,
-            max_tokens=settings.OPENAI_MAX_TOKENS,
-            temperature=0.4,
-        )
-        return (res.choices[0].message.content or "").strip()
+        kwargs = dict(model=settings.OPENAI_MODEL, messages=messages,
+                      max_tokens=settings.OPENAI_MAX_TOKENS, temperature=0.4)
+        if use_tools:
+            kwargs.update(tools=tools.TOOLS, tool_choice="auto")
+        return client.chat.completions.create(**kwargs).choices[0].message
     except Exception as e:  # 네트워크, 키 오류, 한도 초과 등
         raise ChatUnavailable(f"AI 응답 생성에 실패했습니다: {e.__class__.__name__}") from e
+
+
+def _run_with_tools(messages: list[dict]) -> tuple[str, list[dict]]:
+    """Function Calling 루프: GPT 가 도구를 요청하면 실행해서 결과를 돌려주고, 최종 답변을 받는다."""
+    used: list[dict] = []
+    for round_no in range(MAX_TOOL_ROUNDS + 1):
+        msg = _complete(messages, use_tools=round_no < MAX_TOOL_ROUNDS)
+        calls = getattr(msg, "tool_calls", None) or []
+        if not calls:
+            return (msg.content or "").strip(), used
+        messages.append({
+            "role": "assistant",
+            "content": msg.content or "",
+            "tool_calls": [{"id": c.id, "type": "function",
+                            "function": {"name": c.function.name, "arguments": c.function.arguments}} for c in calls],
+        })
+        for c in calls:
+            result = tools.run_tool(c.function.name, c.function.arguments)
+            used.append({"name": c.function.name, "label": tools.TOOL_LABELS.get(c.function.name, c.function.name),
+                         "arguments": json.loads(c.function.arguments or "{}") if c.function.arguments else {}})
+            messages.append({"role": "tool", "tool_call_id": c.id, "content": _compact(result)})
+    return "답변을 정리하지 못했어요. 질문을 조금 더 구체적으로 해 주세요.", used
 
 
 def chat(message: str, conversation_id: str | None) -> dict:
     # 1) 데이터 요약 조회 (/api/data/summary 와 같은 함수)
     summary = data_service.build_summary()
 
-    # 2) 이전 대화가 있으면 불러온다
+    # 2) 이전 대화가 있으면 불러온다 (role, content 만 보낸다)
     history: list[dict] = []
     if conversation_id:
         conv = conversation_service.get_conversation(conversation_id)
         if conv is None:
             raise LookupError("대화를 찾을 수 없습니다.")
-        history = conv["messages"][-settings.CHAT_HISTORY_LIMIT:]
+        history = [{"role": m["role"], "content": m["content"]} for m in conv["messages"][-settings.CHAT_HISTORY_LIMIT:]]
 
-    # 3) 요약을 시스템 프롬프트에 넣어 GPT 호출
+    # 3) 요약을 시스템 프롬프트에 넣어 GPT 호출 (필요하면 도구 호출)
     messages = [{"role": "system", "content": build_system_prompt(summary)}, *history, {"role": "user", "content": message}]
-    reply = _call_openai(messages)
+    reply, used = _run_with_tools(messages)
 
-    # 4) 대화 자동 저장
-    new_msgs = [{"role": "user", "content": message}, {"role": "assistant", "content": reply}]
+    # 4) 대화 자동 저장 (어떤 도구를 썼는지도 함께 기록)
+    assistant_msg = {"role": "assistant", "content": reply}
+    if used:
+        assistant_msg["tools_used"] = [u["label"] for u in used]
+    new_msgs = [{"role": "user", "content": message}, assistant_msg]
     if conversation_id:
         conversation_service.append_messages(conversation_id, new_msgs)
     else:
         conversation_id = conversation_service.create_conversation("", new_msgs)["id"]
 
-    return {"reply": reply, "conversation_id": conversation_id, "summary_used": summary}
+    return {"reply": reply, "conversation_id": conversation_id, "summary_used": summary, "tool_calls": used}

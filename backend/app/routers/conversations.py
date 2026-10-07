@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/conversations", tags=["대화 기록"])
 
 @router.post("", response_model=ConversationDetail, status_code=status.HTTP_201_CREATED, summary="대화 저장")
 def create_conversation(body: ConversationCreate):
-    return conversation_service.create_conversation(body.title, [m.model_dump() for m in body.messages])
+    return conversation_service.create_conversation(body.title, [m.model_dump(exclude_none=True) for m in body.messages])
 
 
 @router.get("", response_model=list[ConversationListItem], summary="대화 목록 조회 (messages 미포함)")
