@@ -194,7 +194,7 @@ Claude 데스크톱 → 설정 → 개발자 → 구성 편집 (`%APPDATA%\Claud
   }
 }
 ```
-검증: Claude 데스크톱에서 "bitcoin-ai-assistant 도구로 3월 가격 흐름 알려 줘" → `get_price_range` 호출 허용 → 답변 확인 (스크린샷: `docs/screenshots/06_mcp_claude.png`).
+검증: Claude 데스크톱에서 "bitcoin-ai-assistant 도구로 3월 가격 흐름 알려 줘" → `get_price_range` 호출 허용 → 답변 확인.
 
 ## 8. 보너스 ②: 인사이트·UX 고도화
 | 요구 사항 | 구현 |
@@ -287,7 +287,6 @@ OPENAI_MODEL=gpt-4o-mini
 | 대화 기록 불러오기 | ![대화 기록](docs/screenshots/03_history.png) |
 | Swagger UI | ![Swagger](docs/screenshots/04_swagger.png) |
 | (보너스) 그래프·다크 모드 | ![그래프](docs/screenshots/05_chart_dark.png) |
-| (보너스) MCP — Claude 데스크톱에서 도구 호출 | ![MCP](docs/screenshots/06_mcp_claude.png) |
 
 ## 15. 데이터 출처
 - 업비트 Open API (시세 조회, 인증 불필요): https://docs.upbit.com
