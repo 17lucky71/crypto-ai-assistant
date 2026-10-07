@@ -16,7 +16,7 @@ import json
 import sys
 import time
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from statistics import mean, pstdev
 
@@ -104,7 +104,7 @@ def upload(rows: list[dict]) -> None:
         return
     existing = {d["date"] for d in store.list(DATA_COLLECTION)}
     todo = [r for r in rows if r["date"] not in existing]
-    now = datetime.utcnow().isoformat(timespec="seconds") + "+00:00"
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     client = store.client
     for start in range(0, len(todo), 400):  # Firestore 배치는 최대 500건
         batch = client.batch()
