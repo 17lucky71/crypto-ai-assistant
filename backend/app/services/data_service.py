@@ -97,6 +97,7 @@ def build_summary() -> dict:
     lo = min(rows, key=lambda r: r["value"])
     returns = [_pct(values[i - 1], values[i]) for i in range(1, len(values))]
 
+    ups = sum(1 for i in range(1, len(values)) if values[i] > values[i - 1])
     metrics = {
         "latest": {"date": rows[-1]["date"], "value": round(values[-1])},
         "average": round(mean(values)),
@@ -107,6 +108,8 @@ def build_summary() -> dict:
         "daily_volatility_pct": round(pstdev(returns), 2) if len(returns) > 1 else None,
         "biggest_rise": max(({"date": rows[i + 1]["date"], "pct": r} for i, r in enumerate(returns)), key=lambda x: x["pct"], default=None),
         "biggest_drop": min(({"date": rows[i + 1]["date"], "pct": r} for i, r in enumerate(returns)), key=lambda x: x["pct"], default=None),
+        "up_days_ratio_pct": round(ups / len(returns) * 100, 1) if returns else None,
+        "max_drawdown": _max_drawdown(rows),
     }
 
     by_month: dict[str, list[float]] = defaultdict(list)
@@ -126,3 +129,57 @@ def build_summary() -> dict:
         "notable": [{"date": r["date"], "memo": r["memo"]} for r in rows if r["memo"]][-20:],
     }
     return _summary_cache
+
+
+# ---------------- 추가 통계 (보너스) ----------------
+def _moving_average(values: list[float], window: int) -> list[float | None]:
+    out: list[float | None] = []
+    total = 0.0
+    for i, v in enumerate(values):
+        total += v
+        if i >= window:
+            total -= values[i - window]
+        out.append(round(total / window) if i >= window - 1 else None)
+    return out
+
+
+def _max_drawdown(rows: list[dict]) -> dict | None:
+    """고점 대비 가장 크게 떨어진 폭(최대 낙폭, MDD)."""
+    if len(rows) < 2:
+        return None
+    peak = rows[0]
+    worst = {"pct": 0.0, "peak_date": peak["date"], "trough_date": peak["date"]}
+    for r in rows:
+        if r["value"] > peak["value"]:
+            peak = r
+        dd = _pct(peak["value"], r["value"])
+        if dd < worst["pct"]:
+            worst = {"pct": dd, "peak_date": peak["date"], "trough_date": r["date"]}
+    return worst
+
+
+def build_statistics() -> dict:
+    rows = list_data()
+    if not rows:
+        return {"count": 0, "up_days": 0, "down_days": 0, "up_ratio_pct": None, "max_drawdown": None,
+                "monthly_returns": [], "series": []}
+    values = [r["value"] for r in rows]
+    ups = sum(1 for i in range(1, len(values)) if values[i] > values[i - 1])
+    downs = sum(1 for i in range(1, len(values)) if values[i] < values[i - 1])
+    ma7, ma30 = _moving_average(values, 7), _moving_average(values, 30)
+
+    by_month: dict[str, list[float]] = defaultdict(list)
+    for r in rows:
+        by_month[r["date"][:7]].append(r["value"])
+    monthly_returns = [{"month": m, "return_pct": _pct(v[0], v[-1])} for m, v in sorted(by_month.items())]
+
+    return {
+        "count": len(rows),
+        "up_days": ups,
+        "down_days": downs,
+        "up_ratio_pct": round(ups / (len(values) - 1) * 100, 1) if len(values) > 1 else None,
+        "max_drawdown": _max_drawdown(rows),
+        "monthly_returns": monthly_returns,
+        "series": [{"date": r["date"], "value": round(r["value"]), "ma7": ma7[i], "ma30": ma30[i]}
+                   for i, r in enumerate(rows)],
+    }

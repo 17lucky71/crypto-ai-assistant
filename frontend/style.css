@@ -12,6 +12,29 @@
   --user: #142235;
   --bot: #f1f4f8;
   --radius: 12px;
+  --field: #ffffff;
+  --head: #f8fafc;
+  --soft-accent: #fff8ec;
+  --grid: #e8edf3;
+  --ma: #2a6fdb;
+  --banner-bg: #fff4e0; --banner-ink: #7a4a00; --banner-line: #f6d49a;
+}
+[data-theme="dark"] {
+  --bg: #0e1520;
+  --panel: #172131;
+  --ink: #e7edf5;
+  --muted: #95a3b8;
+  --line: #2a3648;
+  --user: #f2930d;
+  --bot: #22304a;
+  --field: #111a28;
+  --head: #1c2839;
+  --soft-accent: #2b2414;
+  --grid: #263246;
+  --up: #ff6b6b;
+  --down: #6aa4ff;
+  --ma: #6aa4ff;
+  --banner-bg: #2b2414; --banner-ink: #f6d49a; --banner-line: #5a4316;
 }
 
 * { box-sizing: border-box; }
@@ -44,7 +67,7 @@ h1 { margin: 0; font-size: 19px; }
 
 .banner {
   margin: 12px 24px 0; padding: 10px 14px; border-radius: var(--radius);
-  background: #fff4e0; color: #7a4a00; border: 1px solid #f6d49a; font-size: 14px;
+  background: var(--banner-bg); color: var(--banner-ink); border: 1px solid var(--banner-line); font-size: 14px;
 }
 
 /* 요약 */
@@ -92,7 +115,7 @@ h2 { margin: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; whit
   border: 1px solid var(--line); cursor: pointer;
 }
 .conv-item:hover { background: var(--bot); }
-.conv-item.active { border-color: var(--accent); background: #fff8ec; }
+.conv-item.active { border-color: var(--accent); background: var(--soft-accent); }
 .conv-item .t { flex: 1; min-width: 0; }
 .conv-item .t strong { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-item .t small { color: var(--muted); font-size: 12px; }
@@ -113,14 +136,14 @@ h2 { margin: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; whit
 
 .suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .chip {
-  border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 11px;
+  border: 1px solid var(--line); background: var(--field); border-radius: 999px; padding: 5px 11px;
   font: inherit; font-size: 13px; cursor: pointer; color: var(--ink);
 }
 .chip:hover { border-color: var(--accent); }
 .chat-form { display: flex; gap: 8px; }
 input {
   font: inherit; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
-  background: #fff; color: var(--ink); min-width: 0; width: 100%;
+  background: var(--field); color: var(--ink); min-width: 0; width: 100%; color-scheme: light dark;
 }
 input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 
@@ -136,16 +159,55 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-col
 table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 col.c-date { width: 96px; } col.c-value { width: 104px; } col.c-act { width: 78px; }
 th, td { padding: 7px 6px; white-space: nowrap; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
-th { position: sticky; top: 0; background: #f8fafc; font-weight: 600; color: var(--muted); }
+th { position: sticky; top: 0; background: var(--head); font-weight: 600; color: var(--muted); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.memo-cell { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.actions { white-space: nowrap; text-align: right; }
 tr.editing input { padding: 5px 4px; font-size: 12px; }
 tr.flash { animation: flash 1.6s ease-out; }
-@keyframes flash { from { background: #fff1d6; } to { background: transparent; } }
+@keyframes flash { from { background: var(--soft-accent); } to { background: transparent; } }
 
 .foot { padding: 4px 24px 24px; color: var(--muted); font-size: 12px; }
 .foot a { color: inherit; }
+
+/* 상단 오른쪽 */
+.top-right { display: flex; align-items: center; gap: 8px; }
+.theme-btn {
+  border: 1px solid #3b4a60; background: transparent; color: #e2e8f0; border-radius: 999px;
+  padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.theme-btn:hover { background: #22324a; }
+
+/* 그래프 (보너스) */
+.insight { margin: 16px 24px 0; }
+.range { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.insight-body { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; align-items: stretch; }
+.chart-box { position: relative; min-width: 0; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+.sw-price { background: var(--accent); }
+.sw-ma { background: var(--ma); }
+#chart { width: 100%; height: auto; display: block; }
+#chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+#chart .grid { stroke: var(--grid); stroke-width: 1; }
+#chart .price { fill: none; stroke: var(--accent); stroke-width: 2; }
+#chart .area { fill: var(--accent); opacity: 0.08; }
+#chart .ma { fill: none; stroke: var(--ma); stroke-width: 1.5; stroke-dasharray: 4 3; }
+#chart .cursor { stroke: var(--muted); stroke-width: 1; }
+#chart .dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+.chart-tip {
+  position: absolute; top: 24px; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); white-space: nowrap;
+}
+.mini-stats { display: flex; flex-direction: column; gap: 10px; }
+.mini { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; flex: 1; }
+.mini .label { display: block; font-size: 12px; color: var(--muted); }
+.mini .value { display: block; font-size: 20px; font-weight: 700; }
+.mini small { color: var(--muted); font-size: 12px; }
+.export { display: flex; gap: 6px; }
+.btn-line { background: transparent; color: var(--ink); border: 1px solid var(--line); text-decoration: none; display: inline-block; }
+.btn-line:hover { border-color: var(--accent); }
 
 /* 반응형 */
 @media (max-width: 1100px) {
@@ -154,6 +216,11 @@ tr.flash { animation: flash 1.6s ease-out; }
 }
 @media (max-width: 720px) {
   .topbar, .summary, .layout { padding-left: 16px; padding-right: 16px; }
+  .insight { margin-left: 16px; margin-right: 16px; }
+  .insight-body { grid-template-columns: minmax(0, 1fr); }
+  .mini-stats { flex-direction: row; flex-wrap: wrap; }
+  .mini { min-width: 140px; }
+  .sub { display: none; }
   .banner { margin-left: 16px; margin-right: 16px; }
   .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat.wide { grid-column: 1 / -1; }

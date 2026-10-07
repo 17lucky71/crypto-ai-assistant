@@ -43,6 +43,16 @@ class DataSummary(BaseModel):
     notable: list[dict] = Field(default_factory=list, description="메모가 있는 날 (최근 20개)")
 
 
+class DataStatistics(BaseModel):
+    count: int
+    up_days: int = Field(description="전날보다 오른 날 수")
+    down_days: int = Field(description="전날보다 내린 날 수")
+    up_ratio_pct: float | None = Field(description="상승일 비율(%)")
+    max_drawdown: dict | None = Field(description="최대 낙폭: 고점 대비 가장 크게 떨어진 비율과 날짜")
+    monthly_returns: list[dict] = Field(description="월별 수익률(월초 대비 월말)")
+    series: list[dict] = Field(description="그래프용: 날짜, 종가, 7일·30일 이동평균")
+
+
 # ---------- 대화 ----------
 class Message(BaseModel):
     role: Literal["user", "assistant"]

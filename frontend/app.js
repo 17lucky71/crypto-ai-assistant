@@ -4,7 +4,7 @@ const PAGE = 30;
 
 const $ = (id) => document.getElementById(id);
 const won = new Intl.NumberFormat("ko-KR");
-const state = { conversationId: null, data: [], shown: PAGE, sending: false };
+const state = { conversationId: null, data: [], shown: PAGE, sending: false, series: [], range: 90 };
 
 // ---------- 공통 요청 ----------
 async function api(path, options = {}) {
@@ -285,7 +285,7 @@ function editRow(row) {
         body: JSON.stringify({ date: iDate.value, value: Number(iVal.value), memo: iMemo.value }),
       });
       setDataMsg(`${updated.date} 데이터를 수정했어요.`);
-      await Promise.all([loadData(updated.id), loadSummary()]);
+      await refreshAll(updated.id);
     } catch (e) {
       setDataMsg(`수정 실패: ${e.message}`, false);
     }
@@ -304,7 +304,7 @@ async function deleteData(row) {
   try {
     await api(`/api/data/${row.id}`, { method: "DELETE" });
     setDataMsg(`${row.date} 데이터를 삭제했어요.`);
-    await Promise.all([loadData(), loadSummary()]);
+    await refreshAll();
   } catch (e) {
     setDataMsg(`삭제 실패: ${e.message}`, false);
   }
@@ -319,15 +319,147 @@ async function addData(ev) {
     $("addForm").reset();
     $("addDate").value = new Date().toISOString().slice(0, 10);
     state.shown = Math.max(state.shown, PAGE);
-    await Promise.all([loadData(created.id), loadSummary()]);
+    await refreshAll(created.id);
   } catch (e) {
     setDataMsg(`추가 실패: ${e.message}`, false);
   }
 }
 
+// ---------- 추가 통계 + 그래프 (보너스) ----------
+function eok(v) {
+  // 165000000 → "1.65억", 62000000 → "6,200만"
+  if (v >= 1e8) return `${(v / 1e8).toFixed(v >= 1e9 ? 1 : 2)}억`;
+  return `${won.format(Math.round(v / 1e4))}만`;
+}
+
+async function loadStatistics() {
+  try {
+    const st = await api("/api/data/statistics");
+    state.series = st.series;
+    $("stUp").textContent = st.up_ratio_pct == null ? "-" : `${st.up_ratio_pct}%`;
+    $("stUpSub").textContent = `오른 날 ${st.up_days}일 · 내린 날 ${st.down_days}일`;
+    const mdd = st.max_drawdown;
+    $("stMdd").textContent = mdd ? `${mdd.pct.toFixed(1)}%` : "-";
+    $("stMddSub").textContent = mdd ? `${mdd.peak_date} → ${mdd.trough_date}` : "";
+    const last = st.monthly_returns[st.monthly_returns.length - 1];
+    $("stMonth").textContent = last ? fmtPct(last.return_pct) : "-";
+    $("stMonth").className = "value " + (last && last.return_pct > 0 ? "up" : last && last.return_pct < 0 ? "down" : "");
+    $("stMonthSub").textContent = last ? `${last.month} 월초 대비` : "";
+    drawChart();
+  } catch (e) {
+    $("chart").innerHTML = "";
+    $("stUpSub").textContent = `통계를 불러오지 못했어요: ${e.message}`;
+  }
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  return el;
+}
+
+function drawChart() {
+  const svg = $("chart");
+  svg.innerHTML = "";
+  const pts = state.range ? state.series.slice(-state.range) : state.series;
+  if (pts.length < 2) return;
+  // 화면 너비에 맞춰 좌표계를 정해 글자 크기가 늘어나거나 줄지 않게 한다
+  const W = Math.max(300, Math.round(svg.clientWidth || 800));
+  const H = W < 500 ? 200 : 260, L = 56, R = 10, T = 10, B = 26;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const vals = pts.flatMap((p) => [p.value, p.ma30].filter((v) => v != null));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.08 || hi * 0.05;
+  lo -= pad; hi += pad;
+  const x = (i) => L + (i / (pts.length - 1)) * (W - L - R);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+
+  // 가로 눈금 4개
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + ((hi - lo) * k) / 4;
+    svg.appendChild(svgEl("line", { class: "grid", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+    const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" });
+    t.textContent = eok(v);
+    svg.appendChild(t);
+  }
+  // 날짜 눈금 (좁은 화면은 3개)
+  const ticks = W < 500 ? 2 : 4;
+  for (let k = 0; k <= ticks; k++) {
+    const i = Math.round(((pts.length - 1) * k) / ticks);
+    const t = svgEl("text", { x: x(i), y: H - 6, "text-anchor": k === 0 ? "start" : k === ticks ? "end" : "middle" });
+    t.textContent = pts[i].date.slice(2).replace(/-/g, ".");
+    svg.appendChild(t);
+  }
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join("");
+  svg.appendChild(svgEl("path", { class: "area", d: `${line}L${x(pts.length - 1)},${H - B}L${x(0)},${H - B}Z` }));
+  const ma = pts.map((p, i) => (p.ma30 == null ? null : [x(i), y(p.ma30)])).filter(Boolean);
+  if (ma.length > 1) svg.appendChild(svgEl("path", { class: "ma", d: ma.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join("") }));
+  svg.appendChild(svgEl("path", { class: "price", d: line }));
+
+  // 마우스를 올리면 그날 값 표시
+  const cursor = svgEl("line", { class: "cursor", y1: T, y2: H - B, x1: -10, x2: -10 });
+  const dot = svgEl("circle", { class: "dot", r: 4, cx: -10, cy: -10 });
+  svg.append(cursor, dot);
+  const tip = $("chartTip");
+  const hit = svgEl("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+  svg.appendChild(hit);
+  hit.addEventListener("mousemove", (ev) => {
+    const box = svg.getBoundingClientRect();
+    const sx = ((ev.clientX - box.left) / box.width) * W;
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round(((sx - L) / (W - L - R)) * (pts.length - 1))));
+    const p = pts[i];
+    cursor.setAttribute("x1", x(i)); cursor.setAttribute("x2", x(i));
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.value));
+    tip.hidden = false;
+    tip.textContent = `${p.date}  ${won.format(p.value)}원` + (p.ma30 ? ` (30일 평균 ${eok(p.ma30)})` : "");
+    const px = (x(i) / W) * box.width;
+    tip.style.left = `${Math.min(Math.max(px - 90, 0), Math.max(0, box.width - tip.offsetWidth))}px`;
+  });
+  hit.addEventListener("mouseleave", () => {
+    tip.hidden = true;
+    cursor.setAttribute("x1", -10); cursor.setAttribute("x2", -10);
+    dot.setAttribute("cx", -10);
+  });
+}
+
+// ---------- 다크 모드 (보너스) ----------
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $("themeBtn").textContent = theme === "dark" ? "☀️ 라이트" : "🌙 다크";
+  try { localStorage.setItem("theme", theme); } catch (_) { /* 저장 불가 환경 무시 */ }
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem("theme"); } catch (_) { /* 무시 */ }
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved || (prefersDark ? "dark" : "light"));
+  $("themeBtn").addEventListener("click", () =>
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+}
+
+// 데이터가 바뀌면 목록·요약·통계를 함께 새로고침
+function refreshAll(flashId) {
+  return Promise.all([loadData(flashId), loadSummary(), loadStatistics()]);
+}
+
 // ---------- 시작 ----------
 document.addEventListener("DOMContentLoaded", async () => {
+  initTheme();
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(drawChart, 150);
+  });
   $("docsLink").href = API + "/docs";
+  $("exportCsv").href = API + "/api/data/export?format=csv";
+  $("exportJson").href = API + "/api/data/export?format=json";
+  document.querySelectorAll(".range .chip").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".range .chip").forEach((c) => c.classList.toggle("active", c === b));
+      state.range = Number(b.dataset.range);
+      drawChart();
+    }));
   $("addDate").value = new Date().toISOString().slice(0, 10);
   $("chatForm").addEventListener("submit", (ev) => {
     ev.preventDefault();
@@ -342,6 +474,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   if (await waitForServer()) {
-    await Promise.all([loadSummary(), loadConversations(), loadData()]);
+    await Promise.all([loadSummary(), loadConversations(), loadData(), loadStatistics()]);
   }
 });

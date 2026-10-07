@@ -16,7 +16,10 @@
         <p class="sub">업비트 KRW-BTC 일별 종가를 아는 AI</p>
       </div>
     </div>
-    <span id="serverStatus" class="pill pill-wait">서버 확인 중</span>
+    <div class="top-right">
+      <span id="serverStatus" class="pill pill-wait">서버 확인 중</span>
+      <button id="themeBtn" class="theme-btn" type="button" aria-label="다크 모드 전환">🌙 다크</button>
+    </div>
   </header>
 
   <div id="wakeBanner" class="banner" hidden>
@@ -30,6 +33,34 @@
     <div class="stat"><span class="label">최근 종가</span><span id="sLatest" class="value">-</span></div>
     <div class="stat"><span class="label">30일 변화</span><span id="sChange" class="value">-</span></div>
     <div class="stat wide"><span class="label">최근 트렌드</span><span id="sTrend" class="value">-</span></div>
+  </section>
+
+  <!-- 그래프 + 추가 통계 (보너스) -->
+  <section class="panel insight" aria-label="가격 흐름 그래프">
+    <div class="panel-head">
+      <h2>가격 흐름</h2>
+      <div class="range" role="group" aria-label="기간 선택">
+        <button class="chip" type="button" data-range="30">30일</button>
+        <button class="chip active" type="button" data-range="90">90일</button>
+        <button class="chip" type="button" data-range="180">180일</button>
+        <button class="chip" type="button" data-range="0">전체</button>
+      </div>
+    </div>
+    <div class="insight-body">
+      <div class="chart-box">
+        <div class="legend">
+          <span><i class="sw sw-price"></i>종가</span>
+          <span><i class="sw sw-ma"></i>30일 이동평균</span>
+        </div>
+        <svg id="chart" viewBox="0 0 800 260" role="img" aria-label="비트코인 종가 그래프"></svg>
+        <div id="chartTip" class="chart-tip" hidden></div>
+      </div>
+      <div class="mini-stats">
+        <div class="mini"><span class="label">상승일 비율</span><span id="stUp" class="value">-</span><small id="stUpSub"></small></div>
+        <div class="mini"><span class="label">최대 낙폭 (고점 대비)</span><span id="stMdd" class="value down">-</span><small id="stMddSub"></small></div>
+        <div class="mini"><span class="label">이번 달 수익률</span><span id="stMonth" class="value">-</span><small id="stMonthSub"></small></div>
+      </div>
+    </div>
   </section>
 
   <main class="layout">
@@ -65,8 +96,11 @@
     <!-- 데이터 관리 -->
     <section class="panel data">
       <div class="panel-head">
-        <h2>데이터 관리</h2>
-        <span id="dataCount" class="muted"></span>
+        <h2>데이터 관리 <span id="dataCount" class="muted"></span></h2>
+        <div class="export">
+          <a id="exportCsv" class="btn btn-small btn-line" href="#">CSV</a>
+          <a id="exportJson" class="btn btn-small btn-line" href="#">JSON</a>
+        </div>
       </div>
       <form id="addForm" class="add-form">
         <label>날짜<input id="addDate" type="date" required /></label>

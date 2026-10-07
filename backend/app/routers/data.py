@@ -1,6 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, status
+import csv
+import io
+import json
+from datetime import date
 
-from ..schemas import DataCreate, DataItem, DataSummary, DataUpdate
+from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import Response
+
+from ..schemas import DataCreate, DataItem, DataStatistics, DataSummary, DataUpdate
 from ..services import data_service
 
 router = APIRouter(prefix="/api/data", tags=["데이터"])
@@ -9,6 +15,28 @@ router = APIRouter(prefix="/api/data", tags=["데이터"])
 @router.get("/summary", response_model=DataSummary, summary="데이터 요약 (프롬프트 주입용)")
 def get_summary():
     return data_service.build_summary()
+
+
+@router.get("/statistics", response_model=DataStatistics, summary="추가 통계 (보너스: 이동평균, 상승일 비율, 최대 낙폭, 월별 수익률)")
+def get_statistics():
+    return data_service.build_statistics()
+
+
+@router.get("/export", summary="데이터 내보내기 (보너스: CSV 또는 JSON 파일 다운로드)")
+def export_data(format: str = Query("csv", pattern="^(csv|json)$", description="csv 또는 json")):
+    rows = data_service.list_data()
+    stamp = date.today().strftime("%Y%m%d")
+    if format == "json":
+        body = json.dumps(rows, ensure_ascii=False, indent=2)
+        return Response(body, media_type="application/json; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="btc_daily_{stamp}.json"'})
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=["date", "value", "memo"], extrasaction="ignore")
+    w.writeheader()
+    w.writerows(rows)
+    # 엑셀에서 한글이 깨지지 않도록 BOM 을 붙인다
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="btc_daily_{stamp}.csv"'})
 
 
 @router.get("", response_model=list[DataItem], summary="데이터 목록 조회")
