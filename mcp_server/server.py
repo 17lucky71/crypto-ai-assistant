@@ -6,7 +6,7 @@ Claude 데스크톱 같은 외부 AI 클라이언트가 이 서버를 통해 배
   [Claude 데스크톱] --MCP(stdio)--> [이 server.py] --HTTP--> [Render 백엔드 API] --> [Firestore]
 
 실행 확인: python server.py   (Claude 데스크톱 설정 방법은 README 참고)
-환경 변수: API_BASE_URL (예: https://YOUR-API.onrender.com)
+환경 변수: API_BASE_URL (예: https://crypto-ai-assistant-j7ge.onrender.com)
 """
 import os
 

@@ -42,8 +42,8 @@
 | 구분 | 주소 |
 |---|---|
 | 프론트엔드 (Vercel) | https://YOUR-APP.vercel.app |
-| 백엔드 API (Render) | https://YOUR-API.onrender.com |
-| Swagger UI | https://YOUR-API.onrender.com/docs |
+| 백엔드 API (Render) | https://crypto-ai-assistant-j7ge.onrender.com |
+| Swagger UI | https://crypto-ai-assistant-j7ge.onrender.com/docs |
 
 > Render 무료 티어는 15분간 요청이 없으면 잠들어, 첫 접속에 30초~1분이 걸릴 수 있습니다. 화면 상단에 "서버 깨우는 중" 안내가 뜨고, 서버가 깨면 자동으로 데이터를 불러옵니다.
 
@@ -189,7 +189,7 @@ Claude 데스크톱 → 설정 → 개발자 → 구성 편집 (`%APPDATA%\Claud
     "bitcoin-ai-assistant": {
       "command": "<프로젝트 경로>\\mcp_server\\venv\\Scripts\\python.exe",
       "args": ["<프로젝트 경로>\\mcp_server\\server.py"],
-      "env": { "API_BASE_URL": "https://YOUR-API.onrender.com" }
+      "env": { "API_BASE_URL": "https://crypto-ai-assistant-j7ge.onrender.com" }
     }
   }
 }
