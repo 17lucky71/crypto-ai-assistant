@@ -142,9 +142,12 @@ async function loadSignal() {
       const max = Math.max(Math.abs(bt.after_sell_avg_pct), Math.abs(bt.all_days_avg_pct), 1);
       setBar($("barSell"), $("valSell"), bt.after_sell_avg_pct, max);
       setBar($("barAll"), $("valAll"), bt.all_days_avg_pct, max);
-      $("scBarsNote").textContent = bt.after_sell_avg_pct < bt.all_days_avg_pct
-        ? "매도 신호 뒤가 평소보다 낮았어요. 신호에 팔았다면 손실을 줄였을 거예요."
-        : "매도 신호 뒤가 평소보다 낮지 않았어요. 이 신호는 참고만 하세요.";
+      const gap = bt.after_sell_avg_pct - bt.all_days_avg_pct;
+      $("scBarsNote").textContent = gap <= -0.5
+        ? `매도 신호 뒤가 평소보다 ${Math.abs(gap).toFixed(1)}%p 낮았어요. 신호에 팔았다면 손실을 줄였을 거예요.`
+        : Math.abs(gap) < 0.5
+          ? "매도 신호 뒤와 평소의 차이가 크지 않아요. 지금 규칙은 참고용으로만 보세요."
+          : "매도 신호 뒤가 오히려 평소보다 높았어요. 이 신호는 참고만 하세요.";
     }
     $("sigRange").textContent = `${eok(g.forecast.low)} ~ ${eok(g.forecast.high)}`;
   } catch (e) {
