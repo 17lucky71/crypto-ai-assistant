@@ -9,6 +9,8 @@ ALERT_MODE
 """
 import json
 import logging
+import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -20,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 ALERT_COLLECTION = "alerts"
 STATE_ID = "state"
+SEND_RETRIES = 3  # 디스코드 전송 재시도 횟수
 ALERT_STEP = 2  # '주의' 단계부터 경고
 LEVEL_STYLE = {  # 단계별 아이콘과 색 (대시보드와 같은 색)
     0: ("🟢", 0x2E8B57), 1: ("🔵", 0x2F6FDE), 2: ("🟡", 0xE3A008), 3: ("🟠", 0xEA6A0A), 4: ("🔴", 0xCF1F3A),
@@ -105,10 +108,23 @@ def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk"
 def send_discord(payload: dict) -> None:
     if not settings.DISCORD_WEBHOOK_URL:
         raise AlertConfigError("DISCORD_WEBHOOK_URL 환경 변수가 설정되지 않았습니다.")
-    req = urllib.request.Request(settings.DISCORD_WEBHOOK_URL, data=json.dumps(payload).encode("utf-8"), method="POST",
-                                 headers={"Content-Type": "application/json", "User-Agent": "crypto-ai-assistant"})
-    with urllib.request.urlopen(req, timeout=10):
-        pass
+    body = json.dumps(payload).encode("utf-8")
+    last_error: Exception | None = None
+    for attempt in range(1, SEND_RETRIES + 1):  # 일시적 오류(네트워크·429·5xx)는 잠깐 쉬었다가 다시 보낸다
+        req = urllib.request.Request(settings.DISCORD_WEBHOOK_URL, data=body, method="POST",
+                                     headers={"Content-Type": "application/json", "User-Agent": "crypto-ai-assistant"})
+        try:
+            with urllib.request.urlopen(req, timeout=10):
+                return
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504):
+                raise  # 주소가 틀린 경우(404 등)는 다시 보내도 소용없다
+            last_error = e
+        except urllib.error.URLError as e:
+            last_error = e
+        logger.warning("디스코드 전송 실패 (%d/%d회): %s", attempt, SEND_RETRIES, last_error)
+        time.sleep(2 * attempt)
+    raise last_error  # 끝내 실패하면 API 가 502 를 돌려주고, GitHub Actions 실행이 '실패'로 표시된다
 
 
 def _decide_kind(step: int, last_step: int | None, force: bool) -> str | None:
