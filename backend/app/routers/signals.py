@@ -36,6 +36,8 @@ def run_alert(x_alert_token: str | None = Header(None), force: bool = Query(Fals
         return alert_service.run(force=force)
     except alert_service.AlertConfigError as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e))
+    except alert_service.DiscordSendError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"디스코드 전송 실패: {e}")
     except OSError as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"디스코드 전송 실패: {e.__class__.__name__}")
 

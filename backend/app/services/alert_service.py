@@ -29,6 +29,14 @@ LEVEL_STYLE = {  # 단계별 아이콘과 색 (대시보드와 같은 색)
 }
 
 
+# 디스코드(Cloudflare)는 브라우저나 봇이 아닌 User-Agent 를 막는 경우가 있어 봇 형식으로 보낸다
+DISCORD_UA = "DiscordBot (https://github.com/17lucky71/crypto-ai-assistant, 1.0)"
+
+
+class DiscordSendError(OSError):
+    """디스코드가 요청을 거절했을 때 (이유 포함)."""
+
+
 class AlertConfigError(Exception):
     """웹훅 주소가 없을 때."""
 
@@ -118,13 +126,18 @@ def send_discord(payload: dict) -> None:
     last_error: Exception | None = None
     for attempt in range(1, SEND_RETRIES + 1):  # 일시적 오류(네트워크·429·5xx)는 잠깐 쉬었다가 다시 보낸다
         req = urllib.request.Request(settings.DISCORD_WEBHOOK_URL, data=body, method="POST",
-                                     headers={"Content-Type": "application/json", "User-Agent": "crypto-ai-assistant"})
+                                     headers={"Content-Type": "application/json", "User-Agent": DISCORD_UA})
         try:
             with urllib.request.urlopen(req, timeout=10):
                 return
         except urllib.error.HTTPError as e:
             if e.code not in (429, 500, 502, 503, 504):
-                raise  # 주소가 틀린 경우(404 등)는 다시 보내도 소용없다
+                # 주소가 틀린 경우(404 등)는 다시 보내도 소용없다. 디스코드가 알려 준 이유를 함께 남긴다.
+                try:
+                    reason = e.read()[:300].decode("utf-8", "replace")
+                except Exception:
+                    reason = ""
+                raise DiscordSendError(f"디스코드가 HTTP {e.code} 로 거절했습니다. {reason}".strip()) from e
             last_error = e
         except urllib.error.URLError as e:
             last_error = e
