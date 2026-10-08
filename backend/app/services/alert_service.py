@@ -93,7 +93,9 @@ def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk"
         fields.append({"name": "📰 최근 뉴스", "value": "\n".join(f"[{n['title'][:70]}]({n['link']})" for n in items)[:1000]})
     return {
         "username": "비트코인 위험 알리미",
-        "content": headline,
+        # @everyone 을 붙이면 채널 알림 설정이 '@멘션만'이어도 휴대폰이 울린다
+        "content": (f"{settings.DISCORD_MENTION} " if settings.DISCORD_MENTION else "") + headline,
+        "allowed_mentions": {"parse": ["everyone"] if settings.DISCORD_MENTION else []},
         "embeds": [{
             "title": f"{icon} 비트코인 위험 단계: {lv['name']} ({sig['date']})",
             "url": _dashboard_url(),

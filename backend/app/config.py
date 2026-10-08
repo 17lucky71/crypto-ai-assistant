@@ -33,6 +33,7 @@ class Settings:
     # 매매 신호 알림 (보너스): 디스코드 웹훅 주소와, 알림 실행 API 를 보호하는 비밀 토큰
     DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
     ALERT_TOKEN: str = os.getenv("ALERT_TOKEN", "")
+    DISCORD_MENTION: str = os.getenv("DISCORD_MENTION", "@everyone")  # 비우면 멘션 없이 보냄
     # risk(기본): 위험 단계가 '주의' 이상으로 올라가거나 위험이 풀릴 때만 / change: 단계가 바뀔 때마다 / daily: 매일
     ALERT_MODE: str = os.getenv("ALERT_MODE", "risk")
     # 디스코드 메시지에서 눌러 들어갈 대시보드 주소
