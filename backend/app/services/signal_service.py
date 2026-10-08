@@ -146,12 +146,15 @@ def backtest(values: list[float]) -> dict:
         "sell": rate("SELL"),
         "hold": rate("HOLD"),
         "baseline_up_pct": round(up_days / total * 100, 1) if total else None,
+        # 매도 신호의 비교 기준: 아무 신호 없이 '내린다'고만 했을 때의 적중률 (7일 뒤 오르지 않은 날의 비율)
+        "baseline_down_pct": round((total - up_days) / total * 100, 1) if total else None,
         "after_sell_avg_pct": round(mean(sell_returns) * 100, 2) if sell_returns else None,
         "after_sell_worst_avg_pct": round(mean(sell_worst) * 100, 2) if sell_worst else None,
         "all_days_avg_pct": round(mean(all_returns) * 100, 2) if all_returns else None,
         "note": f"과거 각 날짜에 같은 규칙을 적용해 {HORIZON}일 뒤 실제 방향과 비교했습니다. "
                 "매수 신호는 상승, 매도 신호는 하락, 관망은 ±3% 이내일 때 적중으로 셉니다. "
-                "baseline_up_pct 는 아무 신호 없이 '오른다'고만 했을 때의 적중률입니다. "
+                "baseline_up_pct 는 아무 신호 없이 '오른다'고만 했을 때의 적중률(매수 신호의 비교 기준), "
+                "baseline_down_pct 는 '내린다'고만 했을 때의 적중률(매도 신호의 비교 기준)입니다. "
                 "after_sell_avg_pct 는 매도 신호가 뜬 날 이후 7일 평균 변화율로, all_days_avg_pct(평소)보다 낮으면 "
                 "그 신호에 팔았을 때 손실을 줄였다는 뜻입니다.",
     }
