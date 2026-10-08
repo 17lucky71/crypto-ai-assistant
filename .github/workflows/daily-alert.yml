@@ -1,6 +1,7 @@
 # 매일 아침 9시 5분(KST)에 백엔드의 알림 API 를 호출한다.
-# 백엔드가 업비트 시세 갱신 → 매매 신호 계산 → (신호가 바뀌었으면) 디스코드로 사유와 함께 전송한다.
-# 필요한 저장소 Secret: ALERT_TOKEN (Render 의 ALERT_TOKEN 과 같은 값)
+# 백엔드가 업비트 시세 갱신 → 위험 단계 계산 → 보낼 메시지를 만들고,
+# 저장소 Secret DISCORD_WEBHOOK_URL 이 있으면 GitHub 가 디스코드로 직접 보낸다
+# (Render 무료 서버의 공유 IP 를 디스코드가 막는 경우가 있어서). 없으면 서버가 보낸다.
 name: 매일 매매 신호 알림
 
 on:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:       # Actions 탭에서 수동 실행 가능
     inputs:
       force:
-        description: "신호가 그대로여도 디스코드로 보내기"
+        description: "단계가 그대로여도 디스코드로 보내기 (ALERT_TOKEN 필요)"
         type: boolean
         default: false
 
@@ -20,6 +21,8 @@ jobs:
     env:
       API_URL: ${{ vars.API_URL || 'https://crypto-ai-assistant-j7ge.onrender.com' }}
       FORCE: ${{ github.event.inputs.force || 'false' }}
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      TOKEN: ${{ secrets.ALERT_TOKEN }}
     steps:
       - name: 잠든 무료 서버 깨우기 (최대 3분)
         run: |
@@ -28,8 +31,18 @@ jobs:
             echo "깨우는 중... ($i)"; sleep 10
           done
           echo "서버가 응답하지 않습니다"; exit 1
-      - name: 알림 실행
+      - name: 위험 단계 계산 + 알림
         run: |
+          if [ -n "$WEBHOOK" ]; then MODE=client; else MODE=server; fi
           curl -sS --fail-with-body --max-time 120 -X POST \
-            -H "X-Alert-Token: ${{ secrets.ALERT_TOKEN }}" \
-            "$API_URL/api/alerts/run?force=$FORCE"
+            -H "X-Alert-Token: $TOKEN" \
+            "$API_URL/api/alerts/run?force=$FORCE&deliver=$MODE" -o result.json
+          jq 'del(.payload)' result.json
+          if [ "$MODE" = client ] && [ "$(jq -r '.payload != null' result.json)" = true ]; then
+            jq '.payload' result.json > payload.json
+            curl -sS --fail-with-body --max-time 30 -X POST -H "Content-Type: application/json" \
+              --data @payload.json "$WEBHOOK"
+            echo "디스코드 전송 완료"
+          else
+            echo "보낼 알림 없음 (위험 단계 변화 없음)"
+          fi

@@ -143,7 +143,10 @@ def send_discord(payload: dict) -> None:
             last_error = e
         logger.warning("디스코드 전송 실패 (%d/%d회): %s", attempt, SEND_RETRIES, last_error)
         time.sleep(2 * attempt)
-    raise last_error  # 끝내 실패하면 API 가 502 를 돌려주고, GitHub Actions 실행이 '실패'로 표시된다
+    code = getattr(last_error, "code", None)
+    # 끝내 실패하면 API 가 502 를 돌려주고, GitHub Actions 실행이 '실패'로 표시된다
+    raise DiscordSendError(f"디스코드 일시 오류가 계속됨 (HTTP {code or '연결 실패'}). "
+                           "Render 무료 서버 IP 가 막힌 경우 GitHub Actions 전송(deliver=client)을 쓰세요.") from last_error
 
 
 def _decide_kind(step: int, last_step: int | None, force: bool) -> str | None:
@@ -162,14 +165,19 @@ def _decide_kind(step: int, last_step: int | None, force: bool) -> str | None:
     return None
 
 
-def run(force: bool = False) -> dict:
-    """매일 실행: 시세 갱신 → 위험 단계 계산 → 조건에 맞으면 전송 → 상태 저장."""
+def run(force: bool = False, deliver: str = "server") -> dict:
+    """매일 실행: 시세 갱신 → 위험 단계 계산 → 조건에 맞으면 전송 → 상태 저장.
+
+    deliver="server": 이 서버가 디스코드로 직접 보낸다.
+    deliver="client": 보낼 메시지(payload)만 돌려주고, 호출한 쪽(GitHub Actions)이 디스코드로 보낸다.
+                      Render 무료 서버의 공유 IP 를 디스코드가 막을 때 쓰는 우회 경로.
+    """
     update = market_service.update_latest()
     sig = signal_service.current_signal()
     if not sig.get("available"):
         return {"sent": False, "reason": sig.get("message"), "update": update}
 
-    if not settings.DISCORD_WEBHOOK_URL:
+    if deliver == "server" and not settings.DISCORD_WEBHOOK_URL:
         # 웹훅이 없으면 상태를 저장하지 않는다 (연결 후 첫 실행에 '연결 완료' 메시지를 보내기 위해)
         return {"sent": False, "reason": "DISCORD_WEBHOOK_URL 이 설정되지 않았습니다.", "update": update}
 
@@ -181,7 +189,11 @@ def run(force: bool = False) -> dict:
               "signal": sig["signal"], "date": sig["date"], "update": update}
     if kind:
         news = news_service.recent_news()
-        send_discord(build_message(sig, news, _ai_comment(sig, news) if kind in ("risk", "report") else None, kind))
+        payload = build_message(sig, news, _ai_comment(sig, news) if kind in ("risk", "report") else None, kind)
+        if deliver == "client":
+            result["payload"] = payload  # 호출한 쪽이 디스코드로 보낸다
+        else:
+            send_discord(payload)
         result["sent"] = True
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
