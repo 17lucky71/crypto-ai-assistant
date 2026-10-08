@@ -8,7 +8,7 @@ from ..services import alert_service, market_service, news_service, signal_servi
 router = APIRouter(tags=["매매 신호·뉴스·알림"])
 
 
-@router.get("/api/signals", summary="(보너스) 오늘의 매매 신호 + 근거 + 7일 예상 범위 + 과거 적중률")
+@router.get("/api/signals", summary="(보너스) 오늘의 위험 단계·매매 신호 + 근거 + 7일 예상 범위 + 과거 적중률")
 def get_signal():
     return signal_service.current_signal()
 
@@ -35,6 +35,11 @@ def run_alert(x_alert_token: str | None = Header(None), force: bool = Query(Fals
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e))
     except OSError as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"디스코드 전송 실패: {e.__class__.__name__}")
+
+
+@router.get("/api/alerts/history", summary="(보너스) 디스코드로 보낸 위험 알림 기록 (최신순)")
+def alert_history(limit: int = Query(10, ge=1, le=50)):
+    return alert_service.history(limit)
 
 
 @router.post("/api/market/update", summary="(보너스) 업비트에서 빠진 날짜 시세만 추가 (X-Alert-Token 필요)")

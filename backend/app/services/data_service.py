@@ -118,6 +118,22 @@ def build_summary() -> dict:
     monthly = [{"month": m, "avg": round(mean(v)), "max": round(max(v)), "min": round(min(v)), "days": len(v)}
                for m, v in sorted(by_month.items())]
 
+    # "이번 달 어때?", "가장 좋았던 때는?" 에 바로 답할 수 있게 이번 달·최고/최저 달을 미리 계산해 둔다
+    all_months_avg = mean(m["avg"] for m in monthly)
+    cur = monthly[-1]
+    cur_vals = by_month[cur["month"]]
+    metrics["this_month"] = {
+        "month": cur["month"],
+        "days": cur["days"],
+        "avg": cur["avg"],
+        "vs_monthly_avg_pct": _pct(all_months_avg, cur["avg"]),
+        "change_pct": _pct(cur_vals[0], cur_vals[-1]),
+    }
+    best = max(monthly, key=lambda m: m["avg"])
+    worst = min(monthly, key=lambda m: m["avg"])
+    metrics["best_month"] = {"month": best["month"], "avg": best["avg"]}
+    metrics["worst_month"] = {"month": worst["month"], "avg": worst["avg"]}
+
     _summary_cache = {
         **base,
         "period": f"{rows[0]['date']} ~ {rows[-1]['date']}",

@@ -27,4 +27,6 @@ services:
       - key: ALERT_TOKEN
         sync: false
       - key: ALERT_MODE
-        value: change
+        value: risk
+      - key: FRONTEND_URL
+        value: https://crypto-ai-assistant-frontend-lake.vercel.app

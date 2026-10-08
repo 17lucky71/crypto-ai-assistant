@@ -1,7 +1,11 @@
-"""디스코드 알림: 매일 한 번 실행 → 최신 시세 반영 → 신호 계산 → (바뀌었으면) 디스코드로 사유와 함께 전송.
+"""디스코드 위험 알림: 매일 한 번 실행 → 최신 시세 반영 → 위험 단계 계산 → 조건에 맞으면 사유와 함께 전송.
 
 실행 주체: GitHub Actions 스케줄(.github/workflows/daily-alert.yml)이 POST /api/alerts/run 을 호출한다.
-ALERT_MODE=change(기본) 이면 신호가 바뀐 날만, daily 면 매일 보낸다.
+ALERT_MODE
+  risk (기본) : 위험 단계가 '주의' 이상으로 새로 올라가거나 더 높아지면 🔴 경고, '관심' 이하로 내려오면 ✅ 해제
+  change      : 위험 단계가 바뀔 때마다
+  daily       : 매일
+메시지의 제목을 누르면 대시보드(FRONTEND_URL#risk)로 바로 들어간다.
 """
 import json
 import logging
@@ -16,9 +20,10 @@ logger = logging.getLogger(__name__)
 
 ALERT_COLLECTION = "alerts"
 STATE_ID = "state"
-COLORS = {"BUY": 0x16A34A, "SELL": 0xDC2626, "HOLD": 0x6B7280}
-ICONS = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
-WHY = {"BUY": "사야 할 이유", "SELL": "팔아야 할 이유", "HOLD": "지켜봐야 할 이유"}
+ALERT_STEP = 2  # '주의' 단계부터 경고
+LEVEL_STYLE = {  # 단계별 아이콘과 색 (대시보드와 같은 색)
+    0: ("🟢", 0x2E8B57), 1: ("🔵", 0x2F6FDE), 2: ("🟡", 0xE3A008), 3: ("🟠", 0xEA6A0A), 4: ("🔴", 0xCF1F3A),
+}
 
 
 class AlertConfigError(Exception):
@@ -48,36 +53,49 @@ def _ai_comment(sig: dict, news: dict) -> str | None:
         return None
 
 
-def build_message(sig: dict, news: dict, comment: str | None) -> dict:
-    s = sig["signal"]
-    sign = {"BUY": 1, "SELL": -1}.get(s, 0)
-    main = [r for r in sig["reasons"] if (r["score"] == sign if sign else r["score"] != 0)] or sig["reasons"]
-    counter = [r for r in sig["reasons"] if sign and r["score"] == -sign]
-    desc = f"**{WHY[s]}**\n" + "\n".join(f"• {r['text']}" for r in main)
-    if counter:
-        desc += "\n\n**반대 근거**\n" + "\n".join(f"• {r['text']}" for r in counter)
+def _dashboard_url() -> str:
+    return settings.FRONTEND_URL.rstrip("/") + "/#risk"
+
+
+def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk") -> dict:
+    """kind: risk(위험 경고) / release(위험 해제) / report(정기 보고)."""
+    lv = sig["level"]
+    icon, color = LEVEL_STYLE[lv["step"]]
+    minus = [r for r in sig["reasons"] if r["score"] < 0]
+    plus = [r for r in sig["reasons"] if r["score"] > 0]
+
+    if kind == "release":
+        headline = f"✅ 위험 해제 — 지금은 '{lv['name']}' 단계예요"
+        desc = "하락 근거가 줄어들어 경고를 해제해요.\n\n**지금 보이는 근거**\n" + "\n".join(f"• {r['text']}" for r in sig["reasons"])
+    else:
+        headline = f"{icon} 위험 단계 '{lv['name']}' — {sig['label']}"
+        desc = f"{lv['desc']}\n\n**팔아야 할 이유**\n" + ("\n".join(f"• {r['text']}" for r in minus) or "• 뚜렷한 하락 근거 없음")
+        if plus:
+            desc += "\n\n**버틸 이유 (반대 근거)**\n" + "\n".join(f"• {r['text']}" for r in plus)
     if comment:
         desc += f"\n\n**🤖 뉴스로 본 해석**\n{comment}"
+    desc += f"\n\n📊 [대시보드에서 자세히 보기]({_dashboard_url()})"
 
     bt = sig["backtest"]
-    rate = sig["this_signal_hit_rate_pct"]
-    key = s.lower()
+    sell = bt["sell"]
     fields = [
         {"name": "현재가", "value": f"{_won(sig['price'])}\n({sig['date']} 종가)", "inline": True},
         {"name": f"{sig['forecast']['horizon_days']}일 예상 범위", "value": f"{_won(sig['forecast']['low'])} ~\n{_won(sig['forecast']['high'])}", "inline": True},
-        {"name": "이 신호의 과거 적중률",
-         "value": f"{rate}% ({bt[key]['count']}회)" if rate is not None else "표본 없음", "inline": True},
+        {"name": "매도 신호 성적표",
+         "value": (f"적중률 {sell['hit_rate_pct']}% ({sell['count']}회)\n신호 뒤 7일 평균 {bt['after_sell_avg_pct']:+.2f}%\n(평소 {bt['all_days_avg_pct']:+.2f}%)"
+                   if sell["count"] else "아직 표본 없음"), "inline": True},
     ]
     items = news.get("items", [])[:3]
     if items:
         fields.append({"name": "📰 최근 뉴스", "value": "\n".join(f"[{n['title'][:70]}]({n['link']})" for n in items)[:1000]})
     return {
-        "username": "비트코인 AI 비서",
-        "content": f"{ICONS[s]} **비트코인 {sig['label']}** — 점수 {sig['score']:+d}",
+        "username": "코인 위험 알리미",
+        "content": headline,
         "embeds": [{
-            "title": f"{ICONS[s]} {sig['label']} ({sig['date']})",
+            "title": f"{icon} 비트코인 위험 단계: {lv['name']} ({sig['date']})",
+            "url": _dashboard_url(),
             "description": desc[:3800],
-            "color": COLORS[s],
+            "color": 0x2E8B57 if kind == "release" else color,
             "fields": fields,
             "footer": {"text": sig["disclaimer"]},
         }],
@@ -93,25 +111,52 @@ def send_discord(payload: dict) -> None:
         pass
 
 
+def _decide_kind(step: int, last_step: int | None, force: bool) -> str | None:
+    """보낼 메시지 종류를 정한다. None 이면 보내지 않는다."""
+    mode = settings.ALERT_MODE
+    if mode == "daily" or force:
+        return "risk" if step >= ALERT_STEP else "report"
+    if mode == "change":
+        return None if step == last_step else ("risk" if step >= ALERT_STEP else "report")
+    # risk 모드 (기본)
+    prev = last_step if last_step is not None else 0
+    if step >= ALERT_STEP and step > prev:
+        return "risk"  # 위험이 새로 생기거나 더 높아짐
+    if prev >= ALERT_STEP and step < ALERT_STEP:
+        return "release"  # 위험이 풀림
+    return None
+
+
 def run(force: bool = False) -> dict:
-    """매일 실행: 시세 갱신 → 신호 계산 → 조건에 맞으면 전송 → 상태 저장."""
+    """매일 실행: 시세 갱신 → 위험 단계 계산 → 조건에 맞으면 전송 → 상태 저장."""
     update = market_service.update_latest()
     sig = signal_service.current_signal()
     if not sig.get("available"):
         return {"sent": False, "reason": sig.get("message"), "update": update}
 
     state = store.get(ALERT_COLLECTION, STATE_ID) or {}
-    changed = state.get("last_signal") != sig["signal"]
-    should_send = force or settings.ALERT_MODE == "daily" or changed
-    result = {"sent": False, "signal": sig["signal"], "label": sig["label"], "date": sig["date"],
-              "previous": state.get("last_signal"), "changed": changed, "update": update}
-    if should_send:
+    step = sig["level"]["step"]
+    last_step = state.get("last_step")
+    kind = _decide_kind(step, last_step, force)
+    result = {"sent": False, "kind": kind, "level": sig["level"]["name"], "step": step, "previous_step": last_step,
+              "signal": sig["signal"], "date": sig["date"], "update": update}
+    if kind:
         news = news_service.recent_news()
-        send_discord(build_message(sig, news, _ai_comment(sig, news)))
+        send_discord(build_message(sig, news, _ai_comment(sig, news) if kind != "release" else None, kind))
         result["sent"] = True
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    store.add(ALERT_COLLECTION, {"last_signal": sig["signal"], "last_date": sig["date"], "updated_at": now}, doc_id=STATE_ID)
+    store.add(ALERT_COLLECTION, {"last_step": step, "last_signal": sig["signal"], "last_date": sig["date"], "updated_at": now},
+              doc_id=STATE_ID)
     if result["sent"]:
-        store.add(ALERT_COLLECTION, {"type": "sent", "signal": sig["signal"], "date": sig["date"], "score": sig["score"], "sent_at": now})
+        store.add(ALERT_COLLECTION, {"type": "sent", "kind": kind, "level": sig["level"]["name"], "step": step,
+                                     "signal": sig["signal"], "date": sig["date"], "score": sig["score"], "price": sig["price"],
+                                     "sent_at": now})
     return result
+
+
+def history(limit: int = 10) -> list[dict]:
+    """디스코드로 보낸 기록 (최신순)."""
+    rows = [d for d in store.list(ALERT_COLLECTION) if d.get("type") == "sent"]
+    rows.sort(key=lambda d: d.get("sent_at", ""), reverse=True)
+    return [{k: d.get(k) for k in ("kind", "level", "step", "signal", "date", "score", "price", "sent_at")} for d in rows[:limit]]

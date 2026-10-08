@@ -20,6 +20,22 @@ HORIZON = 7  # 며칠 뒤를 보는 예측인지
 MIN_DAYS = 90  # 지표 계산에 필요한 최소 일수
 LABELS = {"BUY": "매수 신호", "SELL": "매도 신호", "HOLD": "관망"}
 
+# 위험 단계: 국가 위기경보(관심·주의·경계·심각)와 같은 이름을 써서 누구나 바로 알아보게 한다
+LEVELS = [
+    {"step": 0, "key": "safe", "name": "안전", "desc": "뚜렷한 하락 근거가 없어요."},
+    {"step": 1, "key": "watch", "name": "관심", "desc": "하락 근거가 하나 보여요. 흐름을 지켜보세요."},
+    {"step": 2, "key": "caution", "name": "주의", "desc": "하락 근거가 겹치기 시작했어요. 매도를 고민해 볼 때예요."},
+    {"step": 3, "key": "warning", "name": "경계", "desc": "하락 근거가 여럿 겹쳤어요. 매도를 검토할 시점이에요."},
+    {"step": 4, "key": "severe", "name": "심각", "desc": "거의 모든 지표가 하락을 가리켜요. 손실을 줄일 준비를 하세요."},
+]
+
+
+def level_for(score: int) -> dict:
+    """점수 → 위험 단계. 0 이상 안전, -1 관심, -2 주의(매도 신호 시작), -3 경계, -4 이하 심각."""
+    if score >= 0:
+        return LEVELS[0]
+    return LEVELS[min(-score, 4)]
+
 
 def _rsi(values: list[float], period: int = 14) -> float:
     diffs = [values[i] - values[i - 1] for i in range(len(values) - period, len(values))]
@@ -102,6 +118,9 @@ def backtest(values: list[float]) -> dict:
     """같은 규칙을 과거 날짜마다 적용하고, HORIZON 일 뒤 실제 방향과 비교한다 (미래 데이터는 쓰지 않음)."""
     stats = {"BUY": [0, 0], "SELL": [0, 0], "HOLD": [0, 0]}  # [맞음, 전체]
     up_days = total = 0
+    all_returns: list[float] = []
+    sell_returns: list[float] = []
+    sell_worst: list[float] = []  # 매도 신호 뒤 7일 안에 가장 많이 떨어졌던 폭
     for i in range(MIN_DAYS, len(values) - HORIZON):
         past = values[: i + 1]
         signal = _decide(_vote(indicators(past))[0])
@@ -111,6 +130,10 @@ def backtest(values: list[float]) -> dict:
         hit = (signal == "BUY" and future > 0) or (signal == "SELL" and future < 0) or (signal == "HOLD" and abs(future) < 0.03)
         stats[signal][0] += hit
         stats[signal][1] += 1
+        all_returns.append(future)
+        if signal == "SELL":
+            sell_returns.append(future)
+            sell_worst.append(min(values[i + 1: i + HORIZON + 1]) / values[i] - 1)
 
     def rate(k: str):
         hit, n = stats[k]
@@ -123,9 +146,14 @@ def backtest(values: list[float]) -> dict:
         "sell": rate("SELL"),
         "hold": rate("HOLD"),
         "baseline_up_pct": round(up_days / total * 100, 1) if total else None,
+        "after_sell_avg_pct": round(mean(sell_returns) * 100, 2) if sell_returns else None,
+        "after_sell_worst_avg_pct": round(mean(sell_worst) * 100, 2) if sell_worst else None,
+        "all_days_avg_pct": round(mean(all_returns) * 100, 2) if all_returns else None,
         "note": f"과거 각 날짜에 같은 규칙을 적용해 {HORIZON}일 뒤 실제 방향과 비교했습니다. "
                 "매수 신호는 상승, 매도 신호는 하락, 관망은 ±3% 이내일 때 적중으로 셉니다. "
-                "baseline_up_pct 는 아무 신호 없이 '오른다'고만 했을 때의 적중률입니다.",
+                "baseline_up_pct 는 아무 신호 없이 '오른다'고만 했을 때의 적중률입니다. "
+                "after_sell_avg_pct 는 매도 신호가 뜬 날 이후 7일 평균 변화율로, all_days_avg_pct(평소)보다 낮으면 "
+                "그 신호에 팔았을 때 손실을 줄였다는 뜻입니다.",
     }
 
 
@@ -163,6 +191,8 @@ def _compute(rows: list[dict], values: list[float]) -> dict:
         "signal": signal,
         "label": LABELS[signal],
         "score": score,
+        "level": level_for(score),
+        "levels": [{"step": l["step"], "name": l["name"], "key": l["key"]} for l in LEVELS],
         "reasons": reasons,
         "indicators": {k: round(v, 2) for k, v in ind.items()},
         "forecast": {

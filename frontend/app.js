@@ -82,35 +82,75 @@ async function loadSummary() {
   }
 }
 
-// ---------- 오늘의 신호 + 뉴스 (보너스) ----------
+// ---------- 경보판 · 성적표 · 뉴스 · 알림 기록 (보너스) ----------
+function fillList(ul, items, empty) {
+  ul.innerHTML = "";
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = empty;
+    ul.appendChild(li);
+    return;
+  }
+  items.forEach((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    ul.appendChild(li);
+  });
+}
+
+function setBar(el, valEl, pct, max) {
+  // 0 을 가운데로 두고 왼쪽(하락)·오른쪽(상승)으로 막대를 그린다
+  const w = Math.min(Math.abs(pct) / max, 1) * 50;
+  el.style.width = `${w}%`;
+  el.style.left = pct < 0 ? `${50 - w}%` : "50%";
+  el.className = pct < 0 ? "neg" : "pos";
+  valEl.textContent = fmtPct(pct);
+  valEl.className = pct < 0 ? "down" : pct > 0 ? "up" : "";
+}
+
 async function loadSignal() {
+  const board = $("risk");
   try {
     const g = await api("/api/signals");
     if (!g.available) {
-      $("sigBadge").textContent = "데이터 부족";
-      $("sigScore").textContent = g.message || "";
+      board.dataset.level = "none";
+      $("lvName").textContent = "데이터 부족";
+      $("lvDesc").textContent = g.message || "";
       return;
     }
-    $("sigDate").textContent = `${g.date} 종가 기준`;
-    $("sigBadge").textContent = g.label;
-    $("sigBadge").className = "sig-badge " + (g.signal === "BUY" ? "buy" : g.signal === "SELL" ? "sell" : "");
-    $("sigScore").textContent = `점수 ${g.score > 0 ? "+" : ""}${g.score} (+2 이상 매수, -2 이하 매도)`;
-    const ul = $("sigReasons");
-    ul.innerHTML = "";
-    g.reasons.forEach((r) => {
-      const li = document.createElement("li");
-      li.className = r.score > 0 ? "plus" : r.score < 0 ? "minus" : "zero";
-      li.textContent = r.text;
-      ul.appendChild(li);
+    const lv = g.level;
+    board.dataset.level = lv.key;
+    $("lvName").textContent = lv.name;
+    $("lvDesc").textContent = lv.desc;
+    $("lvMeta").textContent = `${g.date} 종가 ${won.format(g.price)}원 · ${g.label} · 점수 ${g.score > 0 ? "+" : ""}${g.score}`;
+    document.querySelectorAll("#lvScale li").forEach((li) => {
+      const on = Number(li.dataset.step) === lv.step;
+      li.classList.toggle("on", on);
+      if (on) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
     });
+
+    fillList($("sellReasons"), g.reasons.filter((r) => r.score < 0).map((r) => r.text), "지금은 뚜렷한 하락 근거가 없어요.");
+    fillList($("holdReasons"), g.reasons.filter((r) => r.score > 0).map((r) => r.text), "버틸 근거가 보이지 않아요.");
+    const neutral = g.reasons.filter((r) => r.score === 0).map((r) => r.text);
+    $("neutralReasons").textContent = neutral.length ? `중립: ${neutral.join(" / ")}` : "";
+
+    const bt = g.backtest;
+    $("scHit").textContent = bt.sell.hit_rate_pct == null ? "-" : `${bt.sell.hit_rate_pct}%`;
+    $("scHitSub").textContent = bt.sell.count ? `지난 ${bt.sell.count}번의 매도 신호 중 7일 뒤 실제로 내린 비율` : "아직 매도 신호가 나온 적이 없어요.";
+    if (bt.after_sell_avg_pct != null) {
+      const max = Math.max(Math.abs(bt.after_sell_avg_pct), Math.abs(bt.all_days_avg_pct), 1);
+      setBar($("barSell"), $("valSell"), bt.after_sell_avg_pct, max);
+      setBar($("barAll"), $("valAll"), bt.all_days_avg_pct, max);
+      $("scBarsNote").textContent = bt.after_sell_avg_pct < bt.all_days_avg_pct
+        ? "매도 신호 뒤가 평소보다 낮았어요. 신호에 팔았다면 손실을 줄였을 거예요."
+        : "매도 신호 뒤가 평소보다 낮지 않았어요. 이 신호는 참고만 하세요.";
+    }
     $("sigRange").textContent = `${eok(g.forecast.low)} ~ ${eok(g.forecast.high)}`;
-    const key = g.signal.toLowerCase();
-    const bt = g.backtest[key];
-    $("sigHit").textContent = g.this_signal_hit_rate_pct == null ? "-" : `${g.this_signal_hit_rate_pct}%`;
-    $("sigHitSub").textContent = `과거 ${bt.count}회 · 그냥 '오른다' ${g.backtest.baseline_up_pct}%`;
   } catch (e) {
-    $("sigBadge").textContent = "불러오기 실패";
-    $("sigScore").textContent = e.message;
+    board.dataset.level = "none";
+    $("lvName").textContent = "불러오기 실패";
+    $("lvDesc").textContent = e.message;
   }
 }
 
@@ -120,7 +160,7 @@ async function loadNews() {
     const n = await api("/api/news?limit=5");
     ul.innerHTML = "";
     if (!n.items.length) {
-      ul.innerHTML = `<li class="muted">${n.error ? "뉴스를 가져오지 못했어요." : "최근 뉴스가 없어요."}</li>`;
+      fillList(ul, [], n.error ? "뉴스를 가져오지 못했어요. 잠시 후 새로고침해 주세요." : "최근 7일 뉴스가 없어요.");
       return;
     }
     n.items.forEach((it) => {
@@ -129,12 +169,38 @@ async function loadNews() {
       a.href = it.link; a.target = "_blank"; a.rel = "noopener";
       a.textContent = it.title;
       const sm = document.createElement("small");
-      sm.textContent = `${it.source} · ${it.published}`;
+      sm.textContent = `${it.source} ${it.published}`;
       li.append(a, sm);
       ul.appendChild(li);
     });
   } catch (e) {
-    ul.innerHTML = '<li class="muted">뉴스를 가져오지 못했어요.</li>';
+    fillList(ul, [], "뉴스를 가져오지 못했어요. 잠시 후 새로고침해 주세요.");
+  }
+}
+
+async function loadAlerts() {
+  const ul = $("alertList");
+  try {
+    const rows = await api("/api/alerts/history?limit=5");
+    ul.innerHTML = "";
+    if (!rows.length) {
+      fillList(ul, [], "아직 보낸 알림이 없어요. 위험 단계가 '주의' 이상이 되면 디스코드로 보내요.");
+      return;
+    }
+    rows.forEach((r) => {
+      const li = document.createElement("li");
+      const tag = document.createElement("span");
+      tag.className = `lv-tag step-${r.step}`;
+      tag.textContent = r.kind === "release" ? "해제" : r.level;
+      const t = document.createElement("span");
+      t.textContent = `${r.date} 기준 · ${eok(r.price)}원`;
+      const sm = document.createElement("small");
+      sm.textContent = fmtDateTime(r.sent_at);
+      li.append(tag, t, sm);
+      ul.appendChild(li);
+    });
+  } catch (e) {
+    fillList(ul, [], "알림 기록을 불러오지 못했어요.");
   }
 }
 
@@ -534,7 +600,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   $("suggestions").querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => sendMessage(b.textContent)));
   $("newChatBtn").addEventListener("click", resetChat);
-  $("sigAsk").addEventListener("click", () => sendMessage("오늘 신호가 왜 이렇게 나왔는지 뉴스와 함께 설명해 줘. 지금 사도 될까?"));
+  $("sigAsk").addEventListener("click", () => {
+    sendMessage("오늘 위험 단계가 왜 이렇게 나왔는지 뉴스와 함께 설명해 줘. 지금 팔아야 할까?");
+    $("chatInput").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
   $("addForm").addEventListener("submit", addData);
   $("moreBtn").addEventListener("click", () => {
     state.shown += PAGE;
@@ -542,6 +611,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   if (await waitForServer()) {
-    await Promise.all([loadSummary(), loadConversations(), loadData(), loadStatistics(), loadSignal(), loadNews()]);
+    await Promise.all([loadSummary(), loadConversations(), loadData(), loadStatistics(), loadSignal(), loadNews(), loadAlerts()]);
   }
 });

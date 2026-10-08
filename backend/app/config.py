@@ -33,7 +33,10 @@ class Settings:
     # 매매 신호 알림 (보너스): 디스코드 웹훅 주소와, 알림 실행 API 를 보호하는 비밀 토큰
     DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
     ALERT_TOKEN: str = os.getenv("ALERT_TOKEN", "")
-    ALERT_MODE: str = os.getenv("ALERT_MODE", "change")  # change: 신호가 바뀐 날만 / daily: 매일
+    # risk(기본): 위험 단계가 '주의' 이상으로 올라가거나 위험이 풀릴 때만 / change: 단계가 바뀔 때마다 / daily: 매일
+    ALERT_MODE: str = os.getenv("ALERT_MODE", "risk")
+    # 디스코드 메시지에서 눌러 들어갈 대시보드 주소
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://crypto-ai-assistant-frontend-lake.vercel.app")
     NEWS_QUERY: str = os.getenv("NEWS_QUERY", "비트코인")
 
     # 채팅에 함께 보낼 이전 대화 개수 (토큰 절약)

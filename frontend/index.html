@@ -3,17 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>비트코인 AI 비서</title>
+  <title>코인 위험 알리미</title>
+  <meta name="description" content="비트코인 하락 위험을 이유와 함께 알려 주는 AI 비서" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <script src="config.js"></script>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">₿</span>
+      <span class="siren" aria-hidden="true"></span>
       <div>
-        <h1>비트코인 AI 비서</h1>
-        <p class="sub">업비트 KRW-BTC 일별 종가를 아는 AI</p>
+        <h1>코인 위험 알리미</h1>
+        <p class="sub">팔아야 할 때를, 이유와 함께 디스코드로</p>
       </div>
     </div>
     <div class="top-right">
@@ -26,37 +30,74 @@
     무료 서버가 잠들어 있어 깨우는 중이에요. 첫 접속은 최대 1분 정도 걸릴 수 있어요.
   </div>
 
-  <!-- 데이터 요약 -->
+  <!-- 경보판: 오늘의 위험 단계 (디스코드 알림 링크가 여기로 온다) -->
+  <section id="risk" class="alarm" data-level="none" aria-labelledby="lvName">
+    <div class="alarm-inner">
+      <div class="alarm-main">
+        <p class="alarm-kicker">지금 비트코인 위험 단계</p>
+        <p id="lvName" class="alarm-level">계산 중</p>
+        <p id="lvDesc" class="alarm-desc">시세와 지표를 분석하고 있어요.</p>
+        <p id="lvMeta" class="alarm-meta"></p>
+        <button id="sigAsk" class="alarm-btn" type="button">AI에게 이유 묻기</button>
+      </div>
+      <ol id="lvScale" class="scale" aria-label="위험 단계 눈금 (아래가 안전, 위가 심각)">
+        <li data-step="4">심각</li>
+        <li data-step="3">경계</li>
+        <li data-step="2">주의</li>
+        <li data-step="1">관심</li>
+        <li data-step="0">안전</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 이유 · 성적표 · 뉴스와 알림 기록 -->
+  <section class="risk-grid" aria-label="위험 단계 근거">
+    <article class="panel reasons-panel">
+      <h2>팔아야 할 이유</h2>
+      <ul id="sellReasons" class="reasons minus"><li class="muted">불러오는 중…</li></ul>
+      <h3>버틸 이유</h3>
+      <ul id="holdReasons" class="reasons plus"></ul>
+      <p id="neutralReasons" class="muted small"></p>
+    </article>
+
+    <article class="panel score-panel">
+      <h2>알리미 성적표</h2>
+      <p class="muted small">같은 규칙을 지난 데이터에 적용해 7일 뒤 결과와 비교했어요.</p>
+      <div class="score-row">
+        <span class="score-label">매도 신호 적중률</span>
+        <span id="scHit" class="score-big">-</span>
+        <span id="scHitSub" class="muted small"></span>
+      </div>
+      <div class="score-row">
+        <span class="score-label">신호 뒤 7일 평균 변화</span>
+        <div class="bars" id="scBars">
+          <div class="bar-line"><span class="bar-name">매도 신호 뒤</span><span class="bar-track"><i id="barSell"></i></span><b id="valSell">-</b></div>
+          <div class="bar-line"><span class="bar-name">평소</span><span class="bar-track"><i id="barAll"></i></span><b id="valAll">-</b></div>
+        </div>
+        <span id="scBarsNote" class="muted small"></span>
+      </div>
+      <div class="score-row">
+        <span class="score-label">7일 예상 범위</span>
+        <span id="sigRange" class="score-mid">-</span>
+        <span class="muted small">최근 30일 변동성 기준, 약 68% 확률 범위</span>
+      </div>
+    </article>
+
+    <article class="panel feed-panel">
+      <h2>최근 뉴스</h2>
+      <ul id="newsList" class="news-list"><li class="muted">불러오는 중…</li></ul>
+      <h3>디스코드 알림 기록</h3>
+      <ul id="alertList" class="alert-list"><li class="muted">불러오는 중…</li></ul>
+    </article>
+  </section>
+
+  <!-- 데이터 요약 (필수: 기간·개수·트렌드) -->
   <section class="summary" aria-label="데이터 요약">
-    <div class="stat"><span class="label">기간</span><span id="sPeriod" class="value">-</span></div>
+    <div class="stat"><span class="label">데이터 기간</span><span id="sPeriod" class="value">-</span></div>
     <div class="stat"><span class="label">데이터 수</span><span id="sCount" class="value">-</span></div>
     <div class="stat"><span class="label">최근 종가</span><span id="sLatest" class="value">-</span></div>
     <div class="stat"><span class="label">30일 변화</span><span id="sChange" class="value">-</span></div>
     <div class="stat wide"><span class="label">최근 트렌드</span><span id="sTrend" class="value">-</span></div>
-  </section>
-
-  <!-- 오늘의 매매 신호 (보너스) -->
-  <section class="panel signal" aria-label="오늘의 매매 신호">
-    <div class="panel-head">
-      <h2>오늘의 신호 <span id="sigDate" class="muted"></span></h2>
-      <button id="sigAsk" class="btn btn-small" type="button">AI에게 이유 묻기</button>
-    </div>
-    <div class="signal-body">
-      <div class="sig-left">
-        <span id="sigBadge" class="sig-badge">계산 중</span>
-        <span id="sigScore" class="muted"></span>
-        <ul id="sigReasons" class="sig-reasons"></ul>
-      </div>
-      <div class="sig-side">
-        <div class="mini"><span class="label">7일 예상 범위</span><span id="sigRange" class="value sm">-</span><small>최근 30일 변동성 기준 약 68%</small></div>
-        <div class="mini"><span class="label">이 신호의 과거 적중률</span><span id="sigHit" class="value">-</span><small id="sigHitSub"></small></div>
-      </div>
-      <div class="sig-news">
-        <span class="label">📰 최근 뉴스</span>
-        <ul id="newsList" class="news-list"><li class="muted">불러오는 중…</li></ul>
-      </div>
-    </div>
-    <p class="muted sig-note">규칙 기반 참고 신호이며 수익을 보장하지 않아요. 투자 판단과 책임은 본인에게 있어요.</p>
   </section>
 
   <!-- 그래프 + 추가 통계 (보너스) -->
@@ -104,14 +145,14 @@
         <h2 id="chatTitle">새 대화</h2>
       </div>
       <div id="messages" class="messages" aria-live="polite">
-        <div class="msg assistant intro">안녕하세요! 저장된 비트코인 시세 요약을 보고 답해 드려요. 아래 예시를 눌러 보거나 직접 물어보세요.</div>
+        <div class="msg assistant intro">저장된 비트코인 시세 요약과 오늘의 위험 단계를 알고 있어요. 아래 예시를 눌러 보거나 직접 물어보세요.</div>
       </div>
       <div class="suggestions" id="suggestions">
-        <button class="chip" type="button">최근 한 달 흐름 어때?</button>
-        <button class="chip" type="button">가장 비쌌던 날은 언제야?</button>
+        <button class="chip" type="button">지금 팔아야 할까?</button>
+        <button class="chip" type="button">이번 달 흐름 어때?</button>
+        <button class="chip" type="button">가장 비쌌던 때는?</button>
         <button class="chip" type="button">급락했던 날 알려줘</button>
         <button class="chip" type="button">올해 3월 가격 흐름은?</button>
-        <button class="chip" type="button">지금 사도 될까?</button>
       </div>
       <form id="chatForm" class="chat-form">
         <input id="chatInput" type="text" maxlength="1000" placeholder="데이터에 대해 물어보세요" autocomplete="off" required />
@@ -146,9 +187,16 @@
     </section>
   </main>
 
-  <footer class="foot">
-    데이터: 업비트 시세 API · AI 답변은 저장된 요약만 근거로 하며 투자 조언이 아닙니다 ·
-    <a id="docsLink" href="#" target="_blank" rel="noopener">API 문서(Swagger)</a>
+  <footer class="creed">
+    <p class="creed-line">버는 것보다 지키는 것이 먼저다.</p>
+    <dl class="creed-rules">
+      <div><dt>이유 없는 경고는 없다</dt><dd>"팔아라"만 말하지 않고, 왜 위험한지 함께 보여 줘요.</dd></div>
+      <div><dt>스스로를 의심한다</dt><dd>예측은 틀릴 수 있어서, 과거 성적표를 먼저 공개해요.</dd></div>
+      <div><dt>먼저 찾아간다</dt><dd>매일 분석하다가 위험해지면 디스코드로 먼저 알려요.</dd></div>
+      <div><dt>결정은 사람이 한다</dt><dd>판단 재료만 드려요. 사고파는 결정과 책임은 본인에게 있어요.</dd></div>
+    </dl>
+    <p class="foot">데이터: 업비트 시세 API, 구글 뉴스 · 규칙 기반 참고 정보이며 수익을 보장하지 않아요 ·
+      <a id="docsLink" href="#" target="_blank" rel="noopener">API 문서(Swagger)</a></p>
   </footer>
 
   <script src="app.js"></script>
