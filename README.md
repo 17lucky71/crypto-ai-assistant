@@ -141,6 +141,7 @@ crypto-ai-assistant/
 ├── docs/
 │   ├── GLOSSARY.md                # 과제 용어 정리
 │   ├── 과제목표_답변정리.md        # 과제 목표 6가지 설명 답변
+│   ├── 평가_대비_상세답변.md       # 과제 PDF 장별 요구 ↔ 구현 ↔ 예상 질문 답변
 │   └── screenshots/
 └── render.yaml
 ```
