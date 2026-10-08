@@ -9,7 +9,7 @@ from openai import OpenAI
 from ..config import settings
 from . import conversation_service, data_service, signal_service, tools
 
-SYSTEM_TEMPLATE = """당신은 '코인 위험 알리미'의 데이터 분석 비서입니다.
+SYSTEM_TEMPLATE = """당신은 '비트코인 위험 알리미'의 데이터 분석 비서입니다.
 사용자의 비트코인 시세 데이터를 이해하고, 아래 [사용자 데이터 요약]을 근거로 한국어로 맞춤형 답변을 제공합니다.
 
 [사용자 데이터 요약]

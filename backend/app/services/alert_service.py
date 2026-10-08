@@ -89,7 +89,7 @@ def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk"
     if items:
         fields.append({"name": "📰 최근 뉴스", "value": "\n".join(f"[{n['title'][:70]}]({n['link']})" for n in items)[:1000]})
     return {
-        "username": "코인 위험 알리미",
+        "username": "비트코인 위험 알리미",
         "content": headline,
         "embeds": [{
             "title": f"{icon} 비트코인 위험 단계: {lv['name']} ({sig['date']})",
