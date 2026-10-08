@@ -4,6 +4,41 @@
 > 업비트 비트코인(KRW-BTC) 일별 종가를 저장·요약해 **"내 데이터를 아는 AI 비서"**로 대화하고,
 > 하락 위험이 커지면 **왜 위험한지와 과거 성적표**를 디스코드로 먼저 알려 주는 웹 서비스입니다.
 
+## ✅ 과제 요건 대응표 (필수 10/10 · 보너스 2/2)
+
+> 평가 기준(M1-2 AI Agent 개발: 나만의 AI 비서 구축)의 항목마다 **어디서 확인할 수 있는지**를 함께 적었습니다.
+
+**필수 요구 사항**
+
+| # | 요구 사항 | 구현 · 확인 위치 | 상태 |
+|---|---|---|---|
+| 1 | 개발 환경 (Python 3.10+, venv, fastapi·uvicorn·firebase-admin·openai·python-dotenv) | `backend/requirements.txt`, 배포 Python 3.11.9 | ✅ |
+| 2 | 시계열 데이터 100개 이상 + 요약 정보 | 업비트 KRW-BTC 일별 종가 **400개**, `GET /api/data/summary` (기간·개수·평균·최고·최저·추세) | ✅ |
+| 3 | FastAPI 구성 + CORS + `/docs` | `backend/main.py` (CORS `ALLOWED_ORIGINS`), [Swagger UI](https://crypto-ai-assistant-j7ge.onrender.com/docs) | ✅ |
+| 4 | Firestore 연동, 키는 환경 변수, `data`·`conversations` 컬렉션 | `backend/app/db.py`, 9장 컬렉션 구조 | ✅ |
+| 5 | 데이터 API 5개 (CRUD 4 + summary) | `POST/GET /api/data`, `PUT/DELETE /api/data/{id}`, `GET /api/data/summary` | ✅ |
+| 6 | 대화 API (저장·목록·삭제 + 불러오기 (A)) | `POST/GET /api/conversations`, `DELETE`·`GET /api/conversations/{id}` | ✅ |
+| 7 | AI 챗봇 API (요약 조회 → 시스템 프롬프트 삽입 → GPT 호출 → 자동 저장) | `POST /api/chat`, `backend/app/services/chat_service.py` | ✅ |
+| 8 | Render 배포 + `/docs` + 콜드스타트 대응 | Render 배포, 프론트의 "서버 깨우는 중" 안내·자동 재시도 | ✅ |
+| 9 | 바닐라 프론트 (채팅·로딩, 데이터 관리, 대화 기록, 요약 표시) | `frontend/` (HTML/CSS/JS, 프레임워크 없음) | ✅ |
+| 10 | Vercel 배포(`API_BASE_URL`) + README + 스크린샷 3종 | [프론트엔드](https://crypto-ai-assistant-frontend-lake.vercel.app), 14장 스크린샷 | ✅ |
+
+- **제약 사항**: 키는 환경 변수로만 관리(`.gitignore`), Pydantic 입력 검증 + 예외 처리, `max_tokens`·이전 대화 10개·도구 호출 3회 제한으로 비용 관리 ✅
+- **AI 제공자**: `openai` 패키지의 Chat Completions·Function Calling 을 그대로 쓰고, 비용 문제로 **Gemini 의 OpenAI 호환 주소**에 연결했습니다. 환경 변수 3개(`OPENAI_API_KEY`·`OPENAI_BASE_URL`·`OPENAI_MODEL`)만 바꾸면 코드 수정 없이 GPT(`gpt-4o-mini`)로 동작합니다.
+
+**보너스**
+
+| 보너스 | 요구 사항 | 구현 | 상태 |
+|---|---|---|---|
+| ① AI 도구 호출 | GPT 가 내부 기능을 도구로 호출 | 도구 6개 (기간 조회·통계·요약·위험 신호·뉴스·대화 목록), 답변 아래 🔧 표시 | ✅ |
+| ① 멀티채널 | MCP Server 또는 GPT Actions | `mcp_server/server.py` — Claude 데스크톱에서 도구 호출로 실제 요약 조회 성공 | ✅ |
+| ① 문서화 | 어떤 근거로 어떤 도구를 호출했는지 + 흐름 | 7장 (도구별 호출 근거 표 + 흐름도) | ✅ |
+| ② 추가 지표 | summary 보강 또는 statistics | `GET /api/data/statistics` + 요약에 상승일 비율·최대 낙폭·이번 달 vs 월평균 | ✅ |
+| ② 시각화 | 그래프 1개 | SVG 가격 그래프 + 30일 이동평균, 기간 선택(30·90·180·전체) | ✅ |
+| ② 내보내기 | CSV 또는 JSON | `GET /api/data/export?format=csv` (또는 `json`) | ✅ |
+| ② 다크 모드 | 토글 | 상단 🌙 버튼 (선택 기억, OS 설정 따름) | ✅ |
+| 추가 (자율) | — | 위험 단계 경보판 + 과거 적중률 공개 + 디스코드 위험 알림 | ✅ 구현 · 디스코드는 웹훅 설정 후 동작 |
+
 ## 1. 서비스 소개
 
 ### 철학: 버는 것보다 지키는 것이 먼저다
@@ -353,6 +388,23 @@ OPENAI_MODEL=gpt-4o-mini
 - **예외 처리**: 없는 id 404, 중복 날짜 409, AI 호출 실패 503, 그 외 500 을 JSON 으로 돌려주고 프론트가 문구로 표시한다.
 - **CORS**: `ALLOWED_ORIGINS` 에 등록한 프론트 주소만 호출할 수 있다.
 - **비용 제한**: 작은 모델(`gpt-4o-mini` / `gemini-2.5-flash`), `max_tokens` 제한, 이전 대화는 최근 10개만 전송, 도구 호출은 최대 3회.
+
+## 시행착오 (문제 → 원인 → 조치 → 결과)
+
+| 구간 | 문제 | 원인 | 조치 | 결과 |
+|---|---|---|---|---|
+| AI 비용 | OpenAI 키에 결제가 필요 | 무료 크레딧 없음 | `openai` 패키지는 그대로 두고 `base_url` 만 Gemini 의 OpenAI 호환 주소로 변경 | 비용 0원, 환경 변수만 바꾸면 GPT 로 전환 가능 |
+| AI 답변 잘림 | Gemini 답변이 중간에 끊김 | Gemini 2.5 는 '생각' 과정도 토큰에 포함 | `OPENAI_MAX_TOKENS` 500 → 1500 | 끝까지 답변 |
+| 키 노출 | 스크린샷에 API 키가 그대로 보임 | 화면 공유 중 키 확인 | 즉시 키 삭제·재발급, 키는 `.env`·배포 환경 변수에만 | 노출된 키 무효화, 이후 캡처 전 확인 |
+| 로컬 실행 | `AuthenticationError` | 예전 코드 압축본 + 잘못된 `.env` | 최신 코드 재다운로드, PowerShell 로 BOM 없는 `.env` 작성 | 로컬 채팅 정상 |
+| 프론트 | 숨긴 요소가 계속 보임 | CSS `display:flex` 가 `hidden` 속성을 덮어씀 | `[hidden]{display:none!important}` | 로딩·안내 표시 정상 |
+| MCP | 설치 후 서버 실행 실패 | `mcp` 2.x 에서 `FastMCP` 위치 변경 | `mcp>=1.2.0,<2` 로 버전 고정 | Claude 데스크톱에서 도구 호출 성공 |
+| Render | Blueprint 배포 후 서비스가 생성되지 않음 | 블루프린트 생성 단계 미완료 | Web Service 직접 생성 (Root `backend`, Start `uvicorn main:app --host 0.0.0.0 --port $PORT`) | 배포 성공, `/docs` 확인 |
+| Vercel | 백엔드·MCP 까지 함께 배포하려 함 | 저장소의 `render.yaml` 을 보고 여러 서비스로 인식 | Root Directory `frontend`, Preset `Other` 로 지정 | 프론트만 배포 |
+| CORS | 배포 화면에서 API 호출이 막힐 수 있음 | 백엔드가 로컬 주소만 허용 | `ALLOWED_ORIGINS` 에 Vercel 주소 추가 (끝 `/` 없이) | 배포 화면에서 채팅·데이터 정상 |
+| 콜드스타트 | 첫 접속이 최대 1분 지연 | Render 무료 서버는 15분 미사용 시 잠듦 | 프론트: 상태 확인 반복 + 안내 배너 / 알림: GitHub Actions 가 먼저 서버를 깨운 뒤 호출 | 사용자가 기다리는 이유를 알 수 있음 |
+
+> **핵심 정리**: 기능을 만든 것보다, 막힌 지점마다 원인을 찾아 **설정과 구조로 해결하고 문서로 남긴 과정**이 이 프로젝트의 결과물입니다.
 
 ## 14. 제출 스크린샷
 | 화면 | 이미지 |
