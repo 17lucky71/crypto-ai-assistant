@@ -166,7 +166,7 @@ crypto-ai-assistant/
 | GET | `/api/signals` | (보너스) 오늘의 매매 신호 + 근거 + 7일 예상 범위 + 과거 적중률 |
 | GET | `/api/news?q=&limit=` | (보너스) 최근 7일 뉴스 헤드라인 (구글 뉴스 RSS) |
 | GET | `/api/alerts/history` | (보너스) 디스코드로 보낸 알림 기록 |
-| POST | `/api/alerts/run` | (보너스) 시세 갱신 → 신호 계산 → 디스코드 알림. `X-Alert-Token` 헤더 필요 |
+| POST | `/api/alerts/run` | (보너스) 시세 갱신 → 위험 단계 계산 → 디스코드 알림. 첫 실행 때 '연결 완료' 메시지, 이후 단계가 바뀔 때만 전송. `force=true` 는 `X-Alert-Token` 필요 |
 | POST | `/api/market/update` | (보너스) 업비트에서 빠진 날짜 시세만 추가. `X-Alert-Token` 헤더 필요 |
 
 ### 요약 응답 예시 (`GET /api/data/summary`)
@@ -337,7 +337,7 @@ alerts/{자동ID}          ← 디스코드로 보낸 기록 (대시보드의 "�
 | `ALLOWED_ORIGINS` | 백엔드 | CORS 허용 도메인 (쉼표 구분) |
 | `API_BASE_URL` | 프론트(Vercel) | 백엔드 주소 |
 | `DISCORD_WEBHOOK_URL` | 백엔드 | (보너스) 디스코드 채널 웹훅 주소 |
-| `ALERT_TOKEN` | 백엔드 + GitHub Secret | (보너스) 알림 API 보호용 비밀 문자열. 두 곳에 같은 값 |
+| `ALERT_TOKEN` | 백엔드 + GitHub Secret | (선택) 강제 전송(`force=true`)을 보호하는 비밀 문자열. 일반 실행은 단계가 바뀔 때만 보내므로 토큰 없이 동작 |
 | `ALERT_MODE` | 백엔드 | `risk`(기본) / `change` / `daily` |
 | `FRONTEND_URL` | 백엔드 | (보너스) 디스코드 메시지에서 눌러 들어갈 대시보드 주소 |
 

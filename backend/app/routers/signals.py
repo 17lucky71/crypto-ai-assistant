@@ -26,9 +26,12 @@ def _check_token(token: str | None) -> None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "알림 토큰이 올바르지 않습니다.")
 
 
-@router.post("/api/alerts/run", summary="(보너스) 시세 갱신 → 신호 계산 → 디스코드 알림. 스케줄러가 매일 호출 (X-Alert-Token 필요)")
-def run_alert(x_alert_token: str | None = Header(None), force: bool = Query(False, description="신호가 그대로여도 보내기")):
-    _check_token(x_alert_token)
+@router.post("/api/alerts/run", summary="(보너스) 시세 갱신 → 위험 단계 계산 → 디스코드 알림. 스케줄러가 매일 호출 (force=true 는 X-Alert-Token 필요)")
+def run_alert(x_alert_token: str | None = Header(None), force: bool = Query(False, description="단계가 그대로여도 보내기 (토큰 필요)")):
+    # 일반 실행은 '단계가 바뀔 때만' 보내므로 여러 번 불려도 중복 알림이 없다 → 토큰 없이 허용.
+    # 강제 전송(force)만 토큰으로 보호한다.
+    if force:
+        _check_token(x_alert_token)
     try:
         return alert_service.run(force=force)
     except alert_service.AlertConfigError as e:

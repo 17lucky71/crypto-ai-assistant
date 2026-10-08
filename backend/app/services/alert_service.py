@@ -67,7 +67,11 @@ def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk"
     minus = [r for r in sig["reasons"] if r["score"] < 0]
     plus = [r for r in sig["reasons"] if r["score"] > 0]
 
-    if kind == "release":
+    if kind == "hello":
+        headline = f"✅ 비트코인 위험 알리미가 연결됐어요 — 지금은 '{lv['name']}' 단계예요"
+        desc = (f"{lv['desc']}\n\n**지금 보이는 근거**\n" + "\n".join(f"• {r['text']}" for r in sig["reasons"])
+                + "\n\n위험 단계가 '주의' 이상으로 올라가면 이 채널로 이유와 함께 알려 드릴게요.")
+    elif kind == "release":
         headline = f"✅ 위험 해제 — 지금은 '{lv['name']}' 단계예요"
         desc = "하락 근거가 줄어들어 경고를 해제해요.\n\n**지금 보이는 근거**\n" + "\n".join(f"• {r['text']}" for r in sig["reasons"])
     else:
@@ -100,7 +104,7 @@ def build_message(sig: dict, news: dict, comment: str | None, kind: str = "risk"
             "title": f"{icon} 비트코인 위험 단계: {lv['name']} ({sig['date']})",
             "url": _dashboard_url(),
             "description": desc[:3800],
-            "color": 0x2E8B57 if kind == "release" else color,
+            "color": 0x2E8B57 if kind in ("release", "hello") else color,
             "fields": fields,
             "footer": {"text": sig["disclaimer"]},
         }],
@@ -152,15 +156,19 @@ def run(force: bool = False) -> dict:
     if not sig.get("available"):
         return {"sent": False, "reason": sig.get("message"), "update": update}
 
+    if not settings.DISCORD_WEBHOOK_URL:
+        # 웹훅이 없으면 상태를 저장하지 않는다 (연결 후 첫 실행에 '연결 완료' 메시지를 보내기 위해)
+        return {"sent": False, "reason": "DISCORD_WEBHOOK_URL 이 설정되지 않았습니다.", "update": update}
+
     state = store.get(ALERT_COLLECTION, STATE_ID) or {}
     step = sig["level"]["step"]
     last_step = state.get("last_step")
-    kind = _decide_kind(step, last_step, force)
+    kind = "hello" if not state else _decide_kind(step, last_step, force)
     result = {"sent": False, "kind": kind, "level": sig["level"]["name"], "step": step, "previous_step": last_step,
               "signal": sig["signal"], "date": sig["date"], "update": update}
     if kind:
         news = news_service.recent_news()
-        send_discord(build_message(sig, news, _ai_comment(sig, news) if kind != "release" else None, kind))
+        send_discord(build_message(sig, news, _ai_comment(sig, news) if kind in ("risk", "report") else None, kind))
         result["sent"] = True
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
