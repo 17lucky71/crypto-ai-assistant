@@ -300,9 +300,9 @@ Claude 데스크톱 → 설정 → 개발자 → 구성 편집 (`%APPDATA%\Claud
 **디스코드 알림 흐름**
 ```
 GitHub Actions (매일 09:05 KST, .github/workflows/daily-alert.yml)
-  → 서버 깨우기 → POST /api/alerts/run (X-Alert-Token)
+  → 서버 깨우기 → POST /api/alerts/run?deliver=client
       → 업비트에서 어제까지 시세 추가 → 신호 계산
-      → 어제와 신호가 달라졌으면 디스코드 웹훅 전송
+      → 위험 단계가 바뀌었으면 보낼 메시지(payload)를 돌려줌 → GitHub Actions 가 디스코드 웹훅으로 전송
         (🔴 매도 신호 / 팔아야 할 이유 / 반대 근거 / AI 의 뉴스 해석 / 현재가 / 7일 범위 / 적중률 / 뉴스 링크 3개)
       → alerts 컬렉션에 마지막 신호 저장
 ```
@@ -413,6 +413,7 @@ OPENAI_MODEL=gpt-4o-mini
 | Vercel | 백엔드·MCP 까지 함께 배포하려 함 | 저장소의 `render.yaml` 을 보고 여러 서비스로 인식 | Root Directory `frontend`, Preset `Other` 로 지정 | 프론트만 배포 |
 | CORS | 배포 화면에서 API 호출이 막힐 수 있음 | 백엔드가 로컬 주소만 허용 | `ALLOWED_ORIGINS` 에 Vercel 주소 추가 (끝 `/` 없이) | 배포 화면에서 채팅·데이터 정상 |
 | 알림 전송 | 디스코드가 잠깐 응답하지 않으면 알림이 사라질 수 있음 | 일시적 네트워크 오류·429·5xx | 3회까지 재시도, 끝내 실패하면 502 → GitHub Actions 실행이 '실패'로 표시되어 메일로 알 수 있음 | 일시적 오류에도 알림 유지 |
+| 디스코드 전송 | 서버에서 보낸 알림이 계속 거절됨 (재시도 3회 모두 실패) | 디스코드가 Render 무료 서버의 **공유 IP** 를 일시 차단 | 서버는 메시지만 만들고(`deliver=client`), **GitHub Actions 가 디스코드로 직접 전송**. 웹훅은 GitHub Secret 에 보관 | 전송 성공, '연결 완료' 알림 수신 |
 | 콜드스타트 | 첫 접속이 최대 1분 지연 | Render 무료 서버는 15분 미사용 시 잠듦 | 프론트: 상태 확인 반복 + 안내 배너 / GitHub Actions(`keep-awake.yml`)가 낮 시간 10분마다 깨움 / 알림 실행 전에도 먼저 깨움 | 낮에는 바로 열리고, 잠들어 있어도 기다리는 이유를 안내 |
 
 > **핵심 정리**: 기능을 만든 것보다, 막힌 지점마다 원인을 찾아 **설정과 구조로 해결하고 문서로 남긴 과정**이 이 프로젝트의 결과물입니다.
